@@ -1,0 +1,10 @@
+replicaCount: 1
+image:
+  repository: "{ .Values.global.imageRegistry }/imagery-core"
+  tag: "latest"
+  pullPolicy: IfNotPresent
+service:
+  type: ClusterIP
+  port: 8001
+env: {}
+resources: {}

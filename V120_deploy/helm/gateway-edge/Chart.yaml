@@ -1,0 +1,6 @@
+apiVersion: v2
+name: gateway-edge
+description: gateway-edge service
+type: application
+version: 1.0.0
+appVersion: "120.0.0"

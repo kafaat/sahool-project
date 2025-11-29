@@ -1,0 +1,30 @@
+global:
+  imageRegistry: registry.example.local/sahool
+  pullSecret: regcred
+  env:
+    DATABASE_URL: postgresql://postgres:postgres@postgres:5432/agri
+    REDIS_URL: redis://redis:6379/0
+    MINIO_ENDPOINT: http://minio:9000
+    CDSE_USER: ""
+    CDSE_PASS: ""
+  ingress:
+    enabled: true
+    className: nginx
+    host: sahool.example.com
+    tlsSecret: sahool-tls
+
+gateway-edge:
+  replicaCount: 2
+
+imagery-core:
+  replicaCount: 2
+  resources:
+    requests:
+      cpu: "500m"
+      memory: "1Gi"
+    limits:
+      cpu: "2"
+      memory: "4Gi"
+
+agent-ai:
+  replicaCount: 1

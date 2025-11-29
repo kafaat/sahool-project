@@ -1,0 +1,1 @@
+Basic Farmer Dashboard using Next.js linked to gateway-edge.

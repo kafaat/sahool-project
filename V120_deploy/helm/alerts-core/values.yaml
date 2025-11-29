@@ -1,0 +1,10 @@
+replicaCount: 1
+image:
+  repository: "{ .Values.global.imageRegistry }/alerts-core"
+  tag: "latest"
+  pullPolicy: IfNotPresent
+service:
+  type: ClusterIP
+  port: 8004
+env: {}
+resources: {}

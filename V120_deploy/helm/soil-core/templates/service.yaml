@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: soil-core
+spec:
+  selector:
+    app: soil-core
+  ports:
+    - port: 8002
+      targetPort: 8002

@@ -1,0 +1,24 @@
+{{- if .Values.global.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: gateway-edge
+  annotations:
+    kubernetes.io/ingress.class: "{{ .Values.global.ingress.className }}"
+spec:
+  tls:
+    - hosts:
+        - "{{ .Values.global.ingress.host }}"
+      secretName: "{{ .Values.global.ingress.tlsSecret }}"
+  rules:
+    - host: "{{ .Values.global.ingress.host }}"
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: gateway-edge
+                port:
+                  number: 8000
+{{- end }}

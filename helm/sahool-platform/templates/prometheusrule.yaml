@@ -1,0 +1,56 @@
+{{- if and .Values.monitoring.enabled .Values.monitoring.alerting.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: sahool-platform-alerts
+  labels:
+    role: alert-rules
+spec:
+  groups:
+    - name: sahool-availability.rules
+      rules:
+        - alert: SahoolGatewayDown
+          expr: absent(up{service="sahool-gateway-edge"}) or up{service="sahool-gateway-edge"} == 0
+          for: 2m
+          labels:
+            severity: critical
+            system: sahool
+            route: {{ .Values.monitoring.alerting.routeLabel | quote }}
+          annotations:
+            summary: "Gateway service is down"
+            description: "No healthy instances for sahool-gateway-edge detected for more than 2 minutes."
+
+        - alert: SahoolImageryDown
+          expr: absent(up{service="sahool-imagery-core"}) or up{service="sahool-imagery-core"} == 0
+          for: 5m
+          labels:
+            severity: warning
+            system: sahool
+            route: {{ .Values.monitoring.alerting.routeLabel | quote }}
+          annotations:
+            summary: "Imagery service is down"
+            description: "Imagery core (/health) is unreachable. NDVI & satellite processing will be impacted."
+
+        - alert: SahoolWeatherDown
+          expr: absent(up{service="sahool-weather-core"}) or up{service="sahool-weather-core"} == 0
+          for: 5m
+          labels:
+            severity: warning
+            system: sahool
+            route: {{ .Values.monitoring.alerting.routeLabel | quote }}
+          annotations:
+            summary: "Weather service is down"
+            description: "Weather core is down. Field weather metrics & alerts will be delayed."
+
+    - name: sahool-resource.rules
+      rules:
+        - alert: SahoolHighCPU
+          expr: avg(rate(container_cpu_usage_seconds_total{{pod=~"sahool-gateway-edge.*"}}[5m])) by (pod) > 0.8
+          for: 10m
+          labels:
+            severity: warning
+            system: sahool
+          annotations:
+            summary: "High CPU usage on gateway-edge"
+            description: "Gateway pods are using more than 80% CPU for over 10 minutes."
+{{- end }}

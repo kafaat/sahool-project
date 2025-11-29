@@ -1,0 +1,34 @@
+apiVersion: v2
+name: sahool-platform
+description: Umbrella chart for Sahool Agri SaaS platform
+type: application
+version: 1.0.0
+appVersion: "120.0.0"
+dependencies:
+  - name: gateway-edge
+    version: 1.0.0
+    repository: "file://../gateway-edge"
+  - name: geo-core
+    version: 1.0.0
+    repository: "file://../geo-core"
+  - name: imagery-core
+    version: 1.0.0
+    repository: "file://../imagery-core"
+  - name: soil-core
+    version: 1.0.0
+    repository: "file://../soil-core"
+  - name: weather-core
+    version: 1.0.0
+    repository: "file://../weather-core"
+  - name: alerts-core
+    version: 1.0.0
+    repository: "file://../alerts-core"
+  - name: analytics-core
+    version: 1.0.0
+    repository: "file://../analytics-core"
+  - name: control-center
+    version: 1.0.0
+    repository: "file://../control-center"
+  - name: agent-ai
+    version: 1.0.0
+    repository: "file://../agent-ai"

@@ -1,0 +1,6 @@
+apiVersion: v2
+name: imagery-core
+description: imagery-core service
+type: application
+version: 1.0.0
+appVersion: "120.0.0"

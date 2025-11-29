@@ -1,0 +1,14 @@
+{
+  "type": "object",
+  "properties": {
+    "reply": {
+      "type": "string"
+    },
+    "actions": {
+      "type": "array"
+    }
+  },
+  "required": [
+    "reply"
+  ]
+}

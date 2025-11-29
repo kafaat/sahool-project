@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sahool-env
+  namespace: sahool
+data:
+  DATABASE_URL: "postgresql://postgres:postgres@postgres:5432/agri"
+  REDIS_URL: "redis://redis:6379/0"
+  MINIO_ENDPOINT: "http://minio:9000"
+  CDSE_USER: ""
+  CDSE_PASS: ""

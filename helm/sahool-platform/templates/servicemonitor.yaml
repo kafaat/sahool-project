@@ -1,0 +1,30 @@
+{{- if and .Values.monitoring.enabled .Values.monitoring.prometheus.serviceMonitor.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: sahool-services-monitor
+  namespace: {{ .Values.monitoring.prometheus.serviceMonitor.namespace }}
+  labels:
+    release: prometheus
+spec:
+  selector:
+    matchExpressions:
+      - key: app
+        operator: In
+        values:
+          - sahool-platform-core
+          - sahool-geo-core
+          - sahool-imagery-core
+          - sahool-soil-core
+          - sahool-weather-core
+          - sahool-alerts-core
+          - sahool-analytics-core
+          - sahool-gateway-edge
+          - sahool-agent-ai
+  namespaceSelector:
+    any: true
+  endpoints:
+    - port: http
+      path: /health
+      interval: 30s
+{{- end }}

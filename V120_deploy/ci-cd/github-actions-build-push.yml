@@ -1,0 +1,19 @@
+name: build-and-push
+on:
+  push:
+    branches: [ main ]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with:
+          registry: registry.example.local
+          username: ${{ secrets.REG_USER }}
+          password: ${{ secrets.REG_PASS }}
+      - uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: registry.example.local/sahool/${{ github.event.repository.name }}:${{ github.sha }}

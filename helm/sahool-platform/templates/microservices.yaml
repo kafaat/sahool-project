@@ -1,0 +1,427 @@
+{{- $reg := .Values.global.imageRegistry -}}
+{{- $tag := .Values.global.imageTag -}}
+
+{{- $pgUser := .Values.postgres.username -}}
+{{- $pgPass := .Values.postgres.password -}}
+{{- $pgDb := .Values.postgres.db -}}
+
+{{- $redisUrl := printf "redis://sahool-redis:6379/0" -}}
+{{- $dbUrl := printf "postgresql+psycopg2://%s:%s@sahool-postgres:5432/%s" $pgUser $pgPass $pgDb -}}
+{{- $minioEndpoint := "http://sahool-minio:9000" -}}
+
+{{- define "svc.resources" -}}
+resources:
+  requests:
+    cpu: "100m"
+    memory: "256Mi"
+  limits:
+    cpu: "500m"
+    memory: "512Mi"
+{{- end -}}
+
+{{- define "svc.probes" -}}
+livenessProbe:
+  httpGet:
+    path: /health
+    port: {{ .port }}
+  initialDelaySeconds: 5
+  periodSeconds: 10
+readinessProbe:
+  httpGet:
+    path: /health
+    port: {{ .port }}
+  initialDelaySeconds: 5
+  periodSeconds: 10
+{{- end -}}
+
+{{- if .Values.services.platformCore.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: sahool-platform-core
+spec:
+  type: ClusterIP
+  selector:
+    app: sahool-platform-core
+  ports:
+    - port: 9000
+      targetPort: 9000
+      name: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sahool-platform-core
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sahool-platform-core
+  template:
+    metadata:
+      labels:
+        app: sahool-platform-core
+    spec:
+      containers:
+        - name: platform-core
+          image: "{{ $reg }}/{{ .Values.services.platformCore.image }}:{{ $tag }}"
+          ports:
+            - containerPort: 9000
+          env:
+            - name: DATABASE_URL
+              value: "{{ $dbUrl }}"
+          {{- include "svc.resources" . | nindent 10 }}
+          {{- include "svc.probes" (dict "port" 9000) | nindent 10 }}
+{{- end }}
+---
+{{- if .Values.services.geoCore.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: sahool-geo-core
+spec:
+  type: ClusterIP
+  selector:
+    app: sahool-geo-core
+  ports:
+    - port: 8005
+      targetPort: 8005
+      name: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sahool-geo-core
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sahool-geo-core
+  template:
+    metadata:
+      labels:
+        app: sahool-geo-core
+    spec:
+      containers:
+        - name: geo-core
+          image: "{{ $reg }}/{{ .Values.services.geoCore.image }}:{{ $tag }}"
+          ports:
+            - containerPort: 8005
+          env:
+            - name: DATABASE_URL
+              value: "{{ $dbUrl }}"
+          {{- include "svc.resources" . | nindent 10 }}
+          {{- include "svc.probes" (dict "port" 8005) | nindent 10 }}
+{{- end }}
+---
+{{- if .Values.services.imageryCore.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: sahool-imagery-core
+spec:
+  type: ClusterIP
+  selector:
+    app: sahool-imagery-core
+  ports:
+    - port: 8006
+      targetPort: 8006
+      name: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sahool-imagery-core
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sahool-imagery-core
+  template:
+    metadata:
+      labels:
+        app: sahool-imagery-core
+    spec:
+      containers:
+        - name: imagery-core
+          image: "{{ $reg }}/{{ .Values.services.imageryCore.image }}:{{ $tag }}"
+          ports:
+            - containerPort: 8006
+          env:
+            - name: DATABASE_URL
+              value: "{{ $dbUrl }}"
+            - name: CDSE_USER
+              valueFrom:
+                secretKeyRef:
+                  name: sahool-cdse
+                  key: user
+            - name: CDSE_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: sahool-cdse
+                  key: pass
+            - name: MINIO_ENDPOINT
+              value: "{{ $minioEndpoint }}"
+            - name: MINIO_BUCKET_IMAGERY
+              value: {{ .Values.minio.bucket | quote }}
+            - name: MINIO_ROOT_USER
+              value: {{ .Values.minio.rootUser | quote }}
+            - name: MINIO_ROOT_PASSWORD
+              value: {{ .Values.minio.rootPassword | quote }}
+          {{- include "svc.resources" . | nindent 10 }}
+          {{- include "svc.probes" (dict "port" 8006) | nindent 10 }}
+{{- end }}
+---
+{{- if .Values.services.soilCore.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: sahool-soil-core
+spec:
+  type: ClusterIP
+  selector:
+    app: sahool-soil-core
+  ports:
+    - port: 8002
+      targetPort: 8002
+      name: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sahool-soil-core
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sahool-soil-core
+  template:
+    metadata:
+      labels:
+        app: sahool-soil-core
+    spec:
+      containers:
+        - name: soil-core
+          image: "{{ $reg }}/{{ .Values.services.soilCore.image }}:{{ $tag }}"
+          ports:
+            - containerPort: 8002
+          env:
+            - name: DATABASE_URL
+              value: "{{ $dbUrl }}"
+          {{- include "svc.resources" . | nindent 10 }}
+          {{- include "svc.probes" (dict "port" 8002) | nindent 10 }}
+{{- end }}
+---
+{{- if .Values.services.weatherCore.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: sahool-weather-core
+spec:
+  type: ClusterIP
+  selector:
+    app: sahool-weather-core
+  ports:
+    - port: 8003
+      targetPort: 8003
+      name: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sahool-weather-core
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sahool-weather-core
+  template:
+    metadata:
+      labels:
+        app: sahool-weather-core
+    spec:
+      containers:
+        - name: weather-core
+          image: "{{ $reg }}/{{ .Values.services.weatherCore.image }}:{{ $tag }}"
+          ports:
+            - containerPort: 8003
+          env:
+            - name: DATABASE_URL
+              value: "{{ $dbUrl }}"
+            - name: REDIS_URL
+              value: "{{ $redisUrl }}"
+          {{- include "svc.resources" . | nindent 10 }}
+          {{- include "svc.probes" (dict "port" 8003) | nindent 10 }}
+{{- end }}
+---
+{{- if .Values.services.alertsCore.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: sahool-alerts-core
+spec:
+  type: ClusterIP
+  selector:
+    app: sahool-alerts-core
+  ports:
+    - port: 8004
+      targetPort: 8004
+      name: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sahool-alerts-core
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sahool-alerts-core
+  template:
+    metadata:
+      labels:
+        app: sahool-alerts-core
+    spec:
+      containers:
+        - name: alerts-core
+          image: "{{ $reg }}/{{ .Values.services.alertsCore.image }}:{{ $tag }}"
+          ports:
+            - containerPort: 8004
+          env:
+            - name: DATABASE_URL
+              value: "{{ $dbUrl }}"
+          {{- include "svc.resources" . | nindent 10 }}
+          {{- include "svc.probes" (dict "port" 8004) | nindent 10 }}
+{{- end }}
+---
+{{- if .Values.services.analyticsCore.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: sahool-analytics-core
+spec:
+  type: ClusterIP
+  selector:
+    app: sahool-analytics-core
+  ports:
+    - port: 8005
+      targetPort: 8005
+      name: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sahool-analytics-core
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sahool-analytics-core
+  template:
+    metadata:
+      labels:
+        app: sahool-analytics-core
+    spec:
+      containers:
+        - name: analytics-core
+          image: "{{ $reg }}/{{ .Values.services.analyticsCore.image }}:{{ $tag }}"
+          ports:
+            - containerPort: 8005
+          env:
+            - name: DATABASE_URL
+              value: "{{ $dbUrl }}"
+          {{- include "svc.resources" . | nindent 10 }}
+          {{- include "svc.probes" (dict "port" 8005) | nindent 10 }}
+{{- end }}
+---
+{{- if .Values.services.gatewayEdge.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: sahool-gateway-edge
+spec:
+  type: ClusterIP
+  selector:
+    app: sahool-gateway-edge
+  ports:
+    - port: 9000
+      targetPort: 9000
+      name: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sahool-gateway-edge
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sahool-gateway-edge
+  template:
+    metadata:
+      labels:
+        app: sahool-gateway-edge
+    spec:
+      containers:
+        - name: gateway-edge
+          image: "{{ $reg }}/{{ .Values.services.gatewayEdge.image }}:{{ $tag }}"
+          ports:
+            - containerPort: 9000
+          env:
+            - name: PLATFORM_URL
+              value: "http://sahool-platform-core:9000"
+            - name: GEO_URL
+              value: "http://sahool-geo-core:8005"
+            - name: IMAGERY_URL
+              value: "http://sahool-imagery-core:8006"
+            - name: SOIL_URL
+              value: "http://sahool-soil-core:8002"
+            - name: WEATHER_URL
+              value: "http://sahool-weather-core:8003"
+            - name: ALERTS_URL
+              value: "http://sahool-alerts-core:8004"
+            - name: ANALYTICS_URL
+              value: "http://sahool-analytics-core:8005"
+          {{- include "svc.resources" . | nindent 10 }}
+          {{- include "svc.probes" (dict "port" 9000) | nindent 10 }}
+{{- end }}
+---
+{{- if .Values.services.agentAi.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: sahool-agent-ai
+spec:
+  type: ClusterIP
+  selector:
+    app: sahool-agent-ai
+  ports:
+    - port: 9010
+      targetPort: 9010
+      name: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sahool-agent-ai
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sahool-agent-ai
+  template:
+    metadata:
+      labels:
+        app: sahool-agent-ai
+    spec:
+      containers:
+        - name: agent-ai
+          image: "{{ $reg }}/{{ .Values.services.agentAi.image }}:{{ $tag }}"
+          ports:
+            - containerPort: 9010
+          env:
+            - name: GATEWAY_URL
+              value: "http://sahool-gateway-edge:9000"
+          {{- include "svc.resources" . | nindent 10 }}
+          {{- include "svc.probes" (dict "port" 9010) | nindent 10 }}
+{{- end }}

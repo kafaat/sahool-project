@@ -1,0 +1,6 @@
+apiVersion: v2
+name: sahool-platform
+description: Sahool agricultural monitoring platform - v280 enterprise deployment
+type: application
+version: 0.2.0
+appVersion: "0.2.0"

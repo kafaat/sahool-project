@@ -1,0 +1,6 @@
+apiVersion: v2
+name: soil-core
+description: soil-core service
+type: application
+version: 1.0.0
+appVersion: "120.0.0"

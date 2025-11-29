@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: agent-ai
+spec:
+  selector:
+    app: agent-ai
+  ports:
+    - port: 8010
+      targetPort: 8010

@@ -1,0 +1,221 @@
+{{- $reg := .Values.global.imageRegistry -}}
+{{- $tag := .Values.global.imageTag -}}
+
+{{- define "ops.resources" -}}
+resources:
+  requests:
+    cpu: "50m"
+    memory: "128Mi"
+  limits:
+    cpu: "500m"
+    memory: "512Mi"
+{{- end -}}
+
+{{- if .Values.opsServices.satelliteIngestor.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: sahool-satellite-ingestor
+spec:
+  type: ClusterIP
+  selector:
+    app: sahool-satellite-ingestor
+  ports:
+    - port: {{ .Values.opsServices.satelliteIngestor.port }}
+      targetPort: {{ .Values.opsServices.satelliteIngestor.port }}
+      name: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sahool-satellite-ingestor
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sahool-satellite-ingestor
+  template:
+    metadata:
+      labels:
+        app: sahool-satellite-ingestor
+    spec:
+      containers:
+        - name: satellite-ingestor
+          image: "{{ $reg }}/{{ .Values.opsServices.satelliteIngestor.image }}:{{ $tag }}"
+          ports:
+            - containerPort: {{ .Values.opsServices.satelliteIngestor.port }}
+          env:
+            - name: GATEWAY_URL
+              value: "http://sahool-gateway-edge:9000"
+            - name: MINIO_ENDPOINT
+              value: "http://sahool-minio:9000"
+            - name: REDIS_URL
+              value: "redis://sahool-redis:6379/0"
+          {{- include "ops.resources" . | nindent 10 }}
+{{- end }}
+---
+{{- if .Values.opsServices.weatherIngestor.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: sahool-weather-ingestor
+spec:
+  type: ClusterIP
+  selector:
+    app: sahool-weather-ingestor
+  ports:
+    - port: {{ .Values.opsServices.weatherIngestor.port }}
+      targetPort: {{ .Values.opsServices.weatherIngestor.port }}
+      name: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sahool-weather-ingestor
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sahool-weather-ingestor
+  template:
+    metadata:
+      labels:
+        app: sahool-weather-ingestor
+    spec:
+      containers:
+        - name: weather-ingestor
+          image: "{{ $reg }}/{{ .Values.opsServices.weatherIngestor.image }}:{{ $tag }}"
+          ports:
+            - containerPort: {{ .Values.opsServices.weatherIngestor.port }}
+          env:
+            - name: GATEWAY_URL
+              value: "http://sahool-gateway-edge:9000"
+            - name: REDIS_URL
+              value: "redis://sahool-redis:6379/0"
+          {{- include "ops.resources" . | nindent 10 }}
+{{- end }}
+---
+{{- if .Values.opsServices.ndviProcessor.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: sahool-ndvi-processor
+spec:
+  type: ClusterIP
+  selector:
+    app: sahool-ndvi-processor
+  ports:
+    - port: {{ .Values.opsServices.ndviProcessor.port }}
+      targetPort: {{ .Values.opsServices.ndviProcessor.port }}
+      name: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sahool-ndvi-processor
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sahool-ndvi-processor
+  template:
+    metadata:
+      labels:
+        app: sahool-ndvi-processor
+    spec:
+      containers:
+        - name: ndvi-processor
+          image: "{{ $reg }}/{{ .Values.opsServices.ndviProcessor.image }}:{{ $tag }}"
+          ports:
+            - containerPort: {{ .Values.opsServices.ndviProcessor.port }}
+          env:
+            - name: GATEWAY_URL
+              value: "http://sahool-gateway-edge:9000"
+            - name: MINIO_ENDPOINT
+              value: "http://sahool-minio:9000"
+            - name: MINIO_BUCKET_IMAGERY
+              value: {{ .Values.minio.bucket | quote }}
+            - name: MINIO_BUCKET_NDVI
+              value: "sahool-ndvi"
+            - name: REDIS_URL
+              value: "redis://sahool-redis:6379/0"
+          {{- include "ops.resources" . | nindent 10 }}
+{{- end }}
+---
+{{- if .Values.opsServices.timelineCore.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: sahool-timeline-core
+spec:
+  type: ClusterIP
+  selector:
+    app: sahool-timeline-core
+  ports:
+    - port: {{ .Values.opsServices.timelineCore.port }}
+      targetPort: {{ .Values.opsServices.timelineCore.port }}
+      name: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sahool-timeline-core
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sahool-timeline-core
+  template:
+    metadata:
+      labels:
+        app: sahool-timeline-core
+    spec:
+      containers:
+        - name: timeline-core
+          image: "{{ $reg }}/{{ .Values.opsServices.timelineCore.image }}:{{ $tag }}"
+          ports:
+            - containerPort: {{ .Values.opsServices.timelineCore.port }}
+          env:
+            - name: GATEWAY_URL
+              value: "http://sahool-gateway-edge:9000"
+          {{- include "ops.resources" . | nindent 10 }}
+{{- end }}
+---
+{{- if .Values.opsServices.eventsBus.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: sahool-events-bus
+spec:
+  type: ClusterIP
+  selector:
+    app: sahool-events-bus
+  ports:
+    - port: {{ .Values.opsServices.eventsBus.port }}
+      targetPort: {{ .Values.opsServices.eventsBus.port }}
+      name: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sahool-events-bus
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sahool-events-bus
+  template:
+    metadata:
+      labels:
+        app: sahool-events-bus
+    spec:
+      containers:
+        - name: events-bus
+          image: "{{ $reg }}/{{ .Values.opsServices.eventsBus.image }}:{{ $tag }}"
+          ports:
+            - containerPort: {{ .Values.opsServices.eventsBus.port }}
+          env:
+            - name: REDIS_URL
+              value: "redis://sahool-redis:6379/0"
+          {{- include "ops.resources" . | nindent 10 }}
+{{- end }}

@@ -1,0 +1,115 @@
+# القيم الافتراضية لنشر منصة سهول v280 على Kubernetes عبر Helm
+
+global:
+  # سجل الصور (Container Registry) مثال: ghcr.io/your-org أو registry.gitlab.com/your-group
+  imageRegistry: "your-registry"
+  # الوسم الافتراضي للصور
+  imageTag: "latest"
+
+postgres:
+  enabled: true
+  image: "postgis/postgis:15-3.4"
+  username: "postgres"
+  password: "postgres"
+  db: "sahool"
+
+redis:
+  enabled: true
+  image: "redis:7-alpine"
+
+minio:
+  enabled: true
+  image: "minio/minio"
+  rootUser: "minioadmin"
+  rootPassword: "minioadmin"
+  bucket: "sahool-imagery"
+
+services:
+  platformCore:
+    enabled: true
+    image: "sahool-platform-core"
+    port: 9000
+  geoCore:
+    enabled: true
+    image: "sahool-geo-core"
+    port: 8005
+  imageryCore:
+    enabled: true
+    image: "sahool-imagery-core"
+    port: 8006
+  soilCore:
+    enabled: true
+    image: "sahool-soil-core"
+    port: 8002
+  weatherCore:
+    enabled: true
+    image: "sahool-weather-core"
+    port: 8003
+  alertsCore:
+    enabled: true
+    image: "sahool-alerts-core"
+    port: 8004
+  analyticsCore:
+    enabled: true
+    image: "sahool-analytics-core"
+    port: 8005
+  gatewayEdge:
+    enabled: true
+    image: "sahool-gateway-edge"
+    port: 9000
+  agentAi:
+    enabled: true
+    image: "sahool-agent-ai"
+    port: 9010
+
+ingress:
+  enabled: true
+  class: nginx
+  # غيّر هذا إلى الدومين الحقيقي لديك
+  host: api.sahool.yourdomain.com
+
+autoscaling:
+  enabled: true
+  minReplicas: 1
+  maxReplicas: 5
+  targetCPU: 60
+
+monitoring:
+  enabled: true
+  prometheus:
+    serviceMonitor:
+      enabled: true
+      namespace: "monitoring"  # Namespace الخاص بـ Prometheus Operator (إن وجد)
+  alerting:
+    enabled: true
+    # label selector لالتقاطها من Alertmanager إن أردت التفريق
+    routeLabel: "sahool"
+
+grafana:
+  dashboards:
+    enabled: true
+    namespace: "monitoring"      # الـ namespace الذي تعمل فيه Grafana (إذا تستخدم sidecar dashboards)
+    label: "grafana_dashboard"   # label key يلتقطه الـ sidecar (يعتمد على إعدادك)
+
+opsServices:
+  satelliteIngestor:
+    enabled: true
+    image: "sahool-satellite-ingestor"
+    port: 9101
+  weatherIngestor:
+    enabled: true
+    image: "sahool-weather-ingestor"
+    port: 9102
+  ndviProcessor:
+    enabled: true
+    image: "sahool-ndvi-processor"
+    port: 9103
+  timelineCore:
+    enabled: true
+    image: "sahool-timeline-core"
+    port: 9104
+  eventsBus:
+    enabled: true
+    image: "sahool-events-bus"
+    port: 9105
+

@@ -1,0 +1,56 @@
+# قيم مخصّصة لبيئة الإنتاج Production
+
+global:
+  imageRegistry: "registry.example.com/sahool"
+  imageTag: "v280.0"
+
+ingress:
+  enabled: true
+  class: nginx
+  host: api.sahool.prod.example.com
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPU: 50
+
+postgres:
+  username: "sahool_prod"
+  password: "CHANGE_ME_STRONG_PASSWORD"
+  db: "sahool_prod"
+
+minio:
+  rootUser: "minio_prod"
+  rootPassword: "CHANGE_ME_STRONG_PASSWORD"
+  bucket: "sahool-imagery-prod"
+
+monitoring:
+  enabled: true
+  prometheus:
+    serviceMonitor:
+      enabled: true
+      namespace: "monitoring"
+
+opsServices:
+  satelliteIngestor:
+    enabled: true
+    image: "sahool-satellite-ingestor"
+    port: 9101
+  weatherIngestor:
+    enabled: true
+    image: "sahool-weather-ingestor"
+    port: 9102
+  ndviProcessor:
+    enabled: true
+    image: "sahool-ndvi-processor"
+    port: 9103
+  timelineCore:
+    enabled: true
+    image: "sahool-timeline-core"
+    port: 9104
+  eventsBus:
+    enabled: true
+    image: "sahool-events-bus"
+    port: 9105
+

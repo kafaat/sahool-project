@@ -1,0 +1,1 @@
+# imagery-core service placeholder

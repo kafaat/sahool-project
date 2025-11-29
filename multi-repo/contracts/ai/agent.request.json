@@ -1,0 +1,18 @@
+{
+  "type": "object",
+  "properties": {
+    "tenant_id": {
+      "type": "string"
+    },
+    "field_id": {
+      "type": "string"
+    },
+    "message": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "tenant_id",
+    "message"
+  ]
+}

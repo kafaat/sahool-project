@@ -1,0 +1,57 @@
+{{- if and .Values.grafana.dashboards.enabled .Values.monitoring.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sahool-grafana-dashboard-overview
+  namespace: {{ .Values.grafana.dashboards.namespace }}
+  labels:
+    {{ .Values.grafana.dashboards.label }}: "1"
+data:
+  sahool-overview.json: |
+    {
+      "annotations": {
+        "list": []
+      },
+      "editable": true,
+      "gnetId": null,
+      "graphTooltip": 0,
+      "panels": [
+        {
+          "type": "stat",
+          "title": "Gateway Health",
+          "id": 1,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PROMETHEUS_DS"
+          },
+          "targets": [
+            {
+              "expr": "up{service=\"sahool-gateway-edge\"}",
+              "legendFormat": "gateway-edge",
+              "refId": "A"
+            }
+          ]
+        },
+        {
+          "type": "graph",
+          "title": "Services Health (up metric)",
+          "id": 2,
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PROMETHEUS_DS"
+          },
+          "targets": [
+            {
+              "expr": "up{service=~\"sahool-.*\"}",
+              "legendFormat": "{{{{service}}}}",
+              "refId": "A"
+            }
+          ]
+        }
+      ],
+      "schemaVersion": 38,
+      "title": "Sahool Platform - Overview",
+      "uid": "sahool-overview",
+      "version": 1
+    }
+{{- end }}

@@ -1,0 +1,11 @@
+name: deploy-helm
+on:
+  workflow_dispatch:
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+      - run: helm dependency update helm/sahool-platform
+      - run: helm upgrade --install sahool helm/sahool-platform -n sahool --create-namespace -f helm/sahool-platform/values.yaml

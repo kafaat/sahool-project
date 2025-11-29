@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: gateway-edge
+spec:
+  selector:
+    app: gateway-edge
+  ports:
+    - port: 8000
+      targetPort: 8000

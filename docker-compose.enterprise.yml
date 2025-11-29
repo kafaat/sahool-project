@@ -1,0 +1,291 @@
+version: "3.9"
+
+networks:
+  sahool-net:
+    driver: bridge
+
+services:
+  postgres:
+    image: postgis/postgis:15-3.4
+    container_name: sahool-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: sahool
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata_sahool:/var/lib/postgresql/data
+    networks:
+      - sahool-net
+
+  redis:
+    image: redis:7-alpine
+    container_name: sahool-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    networks:
+      - sahool-net
+
+  minio:
+    image: minio/minio
+    container_name: sahool-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+    volumes:
+      - minio_data:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    networks:
+      - sahool-net
+
+  platform-core:
+    build:
+      context: ./multi-repo/platform-core/multi-repo/platform-core
+    container_name: sahool-platform-core
+    depends_on:
+      - postgres
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+    ports:
+      - "9001:9000"
+    networks:
+      - sahool-net
+
+  geo-core:
+    build:
+      context: ./multi-repo/geo-core/multi-repo/geo-core
+    container_name: sahool-geo-core
+    depends_on:
+      - postgres
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+    ports:
+      - "8005:8005"
+    networks:
+      - sahool-net
+
+  imagery-core:
+    build:
+      context: ./multi-repo/imagery-core/multi-repo/imagery-core
+    container_name: sahool-imagery-core
+    depends_on:
+      - postgres
+      - minio
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      CDSE_USER: ${CDSE_USER}
+      CDSE_PASS: ${CDSE_PASS}
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT}
+      MINIO_BUCKET_IMAGERY: ${MINIO_BUCKET_IMAGERY}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    ports:
+      - "8006:8006"
+    networks:
+      - sahool-net
+
+  soil-core:
+    build:
+      context: ./multi-repo/soil-core/multi-repo/soil-core
+    container_name: sahool-soil-core
+    depends_on:
+      - postgres
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+    ports:
+      - "8002:8002"
+    networks:
+      - sahool-net
+
+  weather-core:
+    build:
+      context: ./multi-repo/weather-core/multi-repo/weather-core
+    container_name: sahool-weather-core
+    depends_on:
+      - postgres
+      - redis
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
+    ports:
+      - "8003:8003"
+    networks:
+      - sahool-net
+
+  alerts-core:
+    build:
+      context: ./multi-repo/alerts-core/multi-repo/alerts-core
+    container_name: sahool-alerts-core
+    depends_on:
+      - postgres
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+    ports:
+      - "8004:8004"
+    networks:
+      - sahool-net
+
+  analytics-core:
+    build:
+      context: ./multi-repo/analytics-core/multi-repo/analytics-core
+    container_name: sahool-analytics-core
+    depends_on:
+      - postgres
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+    ports:
+      - "8007:8005"
+    networks:
+      - sahool-net
+
+  agent-ai:
+    build:
+      context: ./multi-repo/agent-ai
+    container_name: sahool-agent-ai
+    depends_on:
+      - gateway-edge
+    env_file:
+      - .env
+    ports:
+      - "9010:9010"
+    networks:
+      - sahool-net
+
+  gateway-edge:
+    build:
+      context: ./multi-repo/gateway-edge/multi-repo/gateway-edge
+    container_name: sahool-gateway-edge
+    depends_on:
+      - platform-core
+      - geo-core
+      - imagery-core
+      - soil-core
+      - weather-core
+      - alerts-core
+      - analytics-core
+    env_file:
+      - .env
+    environment:
+      PLATFORM_URL: http://platform-core:9000
+      GEO_URL: http://geo-core:8005
+      IMAGERY_URL: http://imagery-core:8006
+      SOIL_URL: http://soil-core:8002
+      WEATHER_URL: http://weather-core:8003
+      ALERTS_URL: http://alerts-core:8004
+      ANALYTICS_URL: http://analytics-core:8005
+    ports:
+      - "9000:9000"
+    networks:
+      - sahool-net
+
+  satellite-ingestor:
+    build:
+      context: ./multi-repo/satellite-ingestor/multi-repo/satellite-ingestor
+    container_name: sahool-satellite-ingestor
+    depends_on:
+      - gateway-edge
+      - minio
+      - redis
+    env_file:
+      - .env
+    environment:
+      GATEWAY_URL: http://gateway-edge:9000
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_BUCKET_IMAGERY: ${MINIO_BUCKET_IMAGERY}
+      REDIS_URL: ${REDIS_URL}
+    ports:
+      - "9101:9000"
+    networks:
+      - sahool-net
+
+  weather-ingestor:
+    build:
+      context: ./multi-repo/weather-ingestor/multi-repo/weather-ingestor
+    container_name: sahool-weather-ingestor
+    depends_on:
+      - gateway-edge
+      - redis
+    env_file:
+      - .env
+    environment:
+      GATEWAY_URL: http://gateway-edge:9000
+      REDIS_URL: ${REDIS_URL}
+    ports:
+      - "9102:9000"
+    networks:
+      - sahool-net
+
+  ndvi-processor:
+    build:
+      context: ./multi-repo/ndvi-processor/multi-repo/ndvi-processor
+    container_name: sahool-ndvi-processor
+    depends_on:
+      - gateway-edge
+      - minio
+      - redis
+    env_file:
+      - .env
+    environment:
+      GATEWAY_URL: http://gateway-edge:9000
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_BUCKET_IMAGERY: ${MINIO_BUCKET_IMAGERY}
+      MINIO_BUCKET_NDVI: ${MINIO_BUCKET_NDVI:-sahool-ndvi}
+      REDIS_URL: ${REDIS_URL}
+    ports:
+      - "9103:9000"
+    networks:
+      - sahool-net
+
+  timeline-core:
+    build:
+      context: ./multi-repo/timeline-core/multi-repo/timeline-core
+    container_name: sahool-timeline-core
+    depends_on:
+      - gateway-edge
+    env_file:
+      - .env
+    environment:
+      GATEWAY_URL: http://gateway-edge:9000
+    ports:
+      - "9104:9000"
+    networks:
+      - sahool-net
+
+  events-bus:
+    build:
+      context: ./multi-repo/events-bus/multi-repo/events-bus
+    container_name: sahool-events-bus
+    depends_on:
+      - redis
+    env_file:
+      - .env
+    environment:
+      REDIS_URL: ${REDIS_URL}
+    ports:
+      - "9105:9000"
+    networks:
+      - sahool-net
+
+volumes:
+  pgdata_sahool:
+  minio_data:

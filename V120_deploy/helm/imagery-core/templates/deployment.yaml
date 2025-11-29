@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: imagery-core
+spec:
+  replicas: { .Values.replicaCount }
+  selector:
+    matchLabels:
+      app: imagery-core
+  template:
+    metadata:
+      labels:
+        app: imagery-core
+    spec:
+      imagePullSecrets:
+        - name: { .Values.global.pullSecret }
+      containers:
+        - name: imagery-core
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - containerPort: 8001
+          env:
+            - name: DATABASE_URL
+              value: "{{ .Values.global.env.DATABASE_URL }}"
+            - name: REDIS_URL
+              value: "{{ .Values.global.env.REDIS_URL }}"
+            - name: MINIO_ENDPOINT
+              value: "{{ .Values.global.env.MINIO_ENDPOINT }}"
+            - name: CDSE_USER
+              value: "{{ .Values.global.env.CDSE_USER }}"
+            - name: CDSE_PASS
+              value: "{{ .Values.global.env.CDSE_PASS }}"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8001
+            initialDelaySeconds: 20
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8001
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources: {{ toYaml .Values.resources | nindent 10 }}

@@ -1,0 +1,42 @@
+{{- if .Values.minio.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: sahool-minio
+spec:
+  type: ClusterIP
+  selector:
+    app: sahool-minio
+  ports:
+    - port: 9000
+      targetPort: 9000
+      protocol: TCP
+      name: s3
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sahool-minio
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sahool-minio
+  template:
+    metadata:
+      labels:
+        app: sahool-minio
+    spec:
+      containers:
+        - name: minio
+          image: {{ .Values.minio.image | quote }}
+          args: ["server", "/data", "--console-address", ":9001"]
+          env:
+            - name: MINIO_ROOT_USER
+              value: {{ .Values.minio.rootUser | quote }}
+            - name: MINIO_ROOT_PASSWORD
+              value: {{ .Values.minio.rootPassword | quote }}
+          ports:
+            - containerPort: 9000
+            - containerPort: 9001
+{{- end }}

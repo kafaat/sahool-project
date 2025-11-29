@@ -1,0 +1,38 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgis/postgis:15-3.4
+    container_name: sahool-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: sahool
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata_sahool:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d sahool"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  gateway-edge:
+    # Replace this with your actual image/build for the gateway
+    build:
+      context: ./multi-repo\gateway-edge
+    container_name: gateway-edge
+    restart: unless-stopped
+    ports:
+      - "9000:9000"
+    depends_on:
+      - postgres
+    # Optional: if your gateway needs env variables, put them here
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/sahool
+
+volumes:
+  pgdata_sahool:
+  minio_data:
