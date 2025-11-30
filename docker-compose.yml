@@ -22,7 +22,7 @@ services:
   gateway-edge:
     # Replace this with your actual image/build for the gateway
     build:
-      context: ./multi-repo\gateway-edge
+      context: ./multi-repo/gateway-edge/multi-repo/gateway-edge
     container_name: gateway-edge
     restart: unless-stopped
     ports:
