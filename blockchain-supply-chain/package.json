@@ -1,0 +1,39 @@
+{
+  "name": "sahool-blockchain-supply-chain",
+  "version": "1.0.0",
+  "description": "Blockchain-based supply chain tracking for Sahool Agricultural Platform",
+  "main": "index.js",
+  "scripts": {
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "deploy:local": "hardhat run scripts/deploy.js --network localhost",
+    "deploy:testnet": "hardhat run scripts/deploy_testnet.js --network mumbai",
+    "deploy:mainnet": "hardhat run scripts/deploy_mainnet.js --network polygon",
+    "node": "hardhat node",
+    "verify": "hardhat verify",
+    "clean": "hardhat clean"
+  },
+  "keywords": [
+    "blockchain",
+    "supply-chain",
+    "agriculture",
+    "smart-contracts",
+    "solidity"
+  ],
+  "author": "Sahool Team",
+  "license": "MIT",
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^3.0.0",
+    "@nomiclabs/hardhat-ethers": "^2.2.3",
+    "@nomiclabs/hardhat-etherscan": "^3.1.7",
+    "hardhat": "^2.17.0",
+    "hardhat-gas-reporter": "^1.0.9",
+    "solidity-coverage": "^0.8.4",
+    "chai": "^4.3.7",
+    "ethers": "^6.7.0"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^4.9.3",
+    "dotenv": "^16.3.1"
+  }
+}
