@@ -112,6 +112,25 @@ export const Colors = {
     },
   },
 
+  // John Deere Inspired - مستوحى من John Deere
+  johnDeere: {
+    green: '#367C2B',      // John Deere Green
+    yellow: '#FFDE00',     // John Deere Yellow
+    black: '#1A1A1A',      // Professional Black
+    lightGreen: '#5DA243', // Light Green
+    darkGreen: '#1E4D2B',  // Dark Green
+  },
+
+  // Professional Agricultural Palette - لوحة زراعية احترافية
+  professional: {
+    primary: '#367C2B',    // Deep Agricultural Green
+    accent: '#FFDE00',     // Bright Yellow
+    earth: '#8B6F47',      // Earth Brown
+    sky: '#87CEEB',        // Sky Blue
+    harvest: '#F4A460',    // Sandy Brown (Harvest)
+    field: '#9ACD32',      // Yellow Green (Field)
+  },
+
   // Dark Mode Colors - ألوان الوضع الداكن
   dark: {
     background: {
