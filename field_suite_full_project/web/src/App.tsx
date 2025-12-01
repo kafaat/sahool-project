@@ -6,6 +6,7 @@ import { FieldList } from './components/FieldList';
 import { FieldMap } from './components/FieldMap';
 import { ToastContainer } from './components/Toast';
 import { FieldCopilot } from './components/FieldCopilot';
+import { AnalyticsDashboard } from './components/AnalyticsDashboard';
 import './styles/main.css';
 
 const AppContent: React.FC = () => {
@@ -43,6 +44,9 @@ const AppContent: React.FC = () => {
         </div>
 
         <div style={{ flex: 1, overflowY: 'auto' }}>
+          <div style={{ padding: '16px' }}>
+            <AnalyticsDashboard />
+          </div>
           <FieldToolbar />
           <div style={{ padding: '0 16px 16px' }}>
             <FieldList />

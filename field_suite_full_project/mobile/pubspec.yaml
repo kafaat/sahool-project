@@ -1,6 +1,9 @@
 name: field_suite_mobile
-description: Field Suite Mobile - Agricultural field boundary management app
-version: 1.0.0+1
+description: >
+  Field Suite Mobile - Professional Agricultural Field Management Application.
+  Manage field boundaries, auto-detect crops with NDVI, and optimize your agricultural operations.
+  Inspired by John Deere Operations Center and leading agricultural platforms.
+version: 2.0.0+1
 publish_to: 'none'
 
 environment:
@@ -10,10 +13,21 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+
+  # Map functionality
   maplibre_gl: ^0.18.0
+
+  # Networking
   http: ^1.1.0
+
+  # State management
   provider: ^6.1.0
+
+  # Local storage
   shared_preferences: ^2.2.0
+
+  # Cupertino icons for iOS
+  cupertino_icons: ^1.0.6
 
 dev_dependencies:
   flutter_test:
@@ -22,3 +36,20 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+
+  # App assets
+  assets:
+    - assets/images/
+    - assets/icons/
+
+  # Custom fonts (optional - can be added later)
+  # fonts:
+  #   - family: Inter
+  #     fonts:
+  #       - asset: assets/fonts/Inter-Regular.ttf
+  #       - asset: assets/fonts/Inter-Medium.ttf
+  #         weight: 500
+  #       - asset: assets/fonts/Inter-SemiBold.ttf
+  #         weight: 600
+  #       - asset: assets/fonts/Inter-Bold.ttf
+  #         weight: 700
