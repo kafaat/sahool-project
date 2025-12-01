@@ -1,0 +1,24 @@
+name: field_suite_mobile
+description: Field Suite Mobile - Agricultural field boundary management app
+version: 1.0.0+1
+publish_to: 'none'
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+  flutter: '>=3.10.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  maplibre_gl: ^0.18.0
+  http: ^1.1.0
+  provider: ^6.1.0
+  shared_preferences: ^2.2.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
