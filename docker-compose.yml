@@ -1,124 +1,363 @@
-version: "3.9"
+version: '3.9'
+
+# Sahool Agricultural Platform - Complete Docker Compose Setup
+# منصة سهول الزراعية - إعداد Docker Compose كامل
+# Version: 3.5.0
 
 services:
+  # ============================================
+  # Database Services - خدمات قواعد البيانات
+  # ============================================
+
   postgres:
     image: postgis/postgis:15-3.4
     container_name: sahool-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: sahool
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ${POSTGRES_DB:-sahool}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=en_US.UTF-8"
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - pgdata_sahool:/var/lib/postgresql/data
+      - ./database/init:/docker-entrypoint-initdb.d
+    networks:
+      - sahool-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d sahool"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-sahool}"]
       interval: 10s
       timeout: 5s
       retries: 5
 
+  redis:
+    image: redis:7-alpine
+    container_name: sahool-redis
+    restart: unless-stopped
+    command: redis-server --requirepass ${REDIS_PASSWORD:-redis_password} --maxmemory 256mb --maxmemory-policy allkeys-lru
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - sahool-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ============================================
+  # IoT Gateway Service - خدمة بوابة إنترنت الأشياء
+  # ============================================
+
+  iot-gateway:
+    build:
+      context: ./iot-gateway
+      dockerfile: Dockerfile
+    container_name: sahool-iot-gateway
+    restart: unless-stopped
+    environment:
+      # Database
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-sahool}
+
+      # Redis
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redis_password}@redis:6379/0
+
+      # Server
+      HOST: 0.0.0.0
+      PORT: 8000
+      WORKERS: ${IOT_WORKERS:-4}
+
+      # Security
+      SECRET_KEY: ${IOT_SECRET_KEY:-change-me-in-production-iot}
+      CORS_ORIGINS: ${CORS_ORIGINS:-*}
+
+      # Logging
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    ports:
+      - "${IOT_GATEWAY_PORT:-8000}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./iot-gateway:/app
+      - iot_logs:/app/logs
+    networks:
+      - sahool-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # ============================================
+  # Gateway Edge (Legacy) - بوابة الحافة
+  # ============================================
+
   gateway-edge:
-    # Replace this with your actual image/build for the gateway
     build:
       context: ./multi-repo/gateway-edge/multi-repo/gateway-edge
-    container_name: gateway-edge
+      dockerfile: Dockerfile
+    container_name: sahool-gateway-edge
     restart: unless-stopped
-    ports:
-      - "9000:9000"
-    depends_on:
-      - postgres
-    # Optional: if your gateway needs env variables, put them here
     environment:
-      DATABASE_URL: postgres://postgres:postgres@postgres:5432/sahool
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-sahool}
+      SERVICE_PORT: 9000
+    ports:
+      - "${GATEWAY_EDGE_PORT:-9000}:9000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - sahool-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
-  # ML Engine Service
+  # ============================================
+  # ML Engine Service - خدمة التعلم الآلي
+  # ============================================
+
   ml-engine:
     build:
       context: ./multi-repo/ml-engine
       dockerfile: Dockerfile
     container_name: sahool-ml-engine
     restart: unless-stopped
-    ports:
-      - "8010:8010"
     environment:
       # Service Configuration
       SERVICE_NAME: ml-engine
       SERVICE_PORT: 8010
 
-      # ML Model Paths (optional - will use defaults if not set)
+      # Database
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-sahool}
+
+      # Redis
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redis_password}@redis:6379/1
+
+      # ML Settings
       MODEL_PATH: /app/models
+      MAX_WORKERS: ${ML_MAX_WORKERS:-4}
 
-      # Database (if needed for storing predictions)
-      DATABASE_URL: postgres://postgres:postgres@postgres:5432/sahool
+      # Security
+      SECRET_KEY: ${ML_SECRET_KEY:-change-me-in-production-ml}
 
-      # Optional: External APIs
-      # OPENWEATHER_API_KEY: your_key_here
-
+      # Logging
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    ports:
+      - "${ML_ENGINE_PORT:-8010}:8010"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     volumes:
-      # Persist trained models
       - ml_models:/app/models
-      # Cache for downloaded models
       - ml_cache:/root/.cache
+      - ml_logs:/app/logs
+    networks:
+      - sahool-network
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
+        reservations:
+          cpus: '1.0'
+          memory: 2G
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8010/health"]
       interval: 30s
       timeout: 10s
       retries: 3
-    depends_on:
-      - postgres
+      start_period: 60s
 
-  # Agent-AI Service with LangChain
+  # ============================================
+  # Agent AI Service - خدمة الذكاء الاصطناعي
+  # ============================================
+
   agent-ai:
     build:
       context: ./multi-repo/agent-ai
       dockerfile: Dockerfile
     container_name: sahool-agent-ai
     restart: unless-stopped
-    ports:
-      - "8002:8002"
     environment:
       # Service Configuration
       SERVICE_NAME: agent-ai
       SERVICE_PORT: 8002
 
-      # Gateway URL for data fetching
+      # Database
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-sahool}
+
+      # Redis
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redis_password}@redis:6379/2
+
+      # Gateway URL
       GATEWAY_URL: http://gateway-edge:9000
 
-      # LLM Provider (optional - falls back to rule-based if not set)
-      # LLM_PROVIDER: openai  # Options: openai, anthropic, fallback
-      # OPENAI_API_KEY: sk-...
-      # ANTHROPIC_API_KEY: sk-ant-...
+      # OpenAI / LLM
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      LLM_PROVIDER: ${LLM_PROVIDER:-fallback}
+      LLM_MODEL: ${LLM_MODEL:-gpt-3.5-turbo}
+
+      # Cost Control
+      MAX_DAILY_COST: ${MAX_DAILY_COST:-10.0}
+      MAX_MONTHLY_COST: ${MAX_MONTHLY_COST:-300.0}
 
       # Vector Store
       CHROMA_DB_PATH: /app/data/chroma_db
 
-      # Optional: LangSmith tracing
-      # LANGSMITH_API_KEY: ...
-      # LANGSMITH_TRACING: true
+      # Security
+      SECRET_KEY: ${AI_SECRET_KEY:-change-me-in-production-ai}
 
+      # Logging
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    ports:
+      - "${AGENT_AI_PORT:-8002}:8002"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      gateway-edge:
+        condition: service_started
+      ml-engine:
+        condition: service_started
     volumes:
-      # Persist vector database
       - agent_knowledge:/app/data
-      # Cache for embeddings models
       - agent_cache:/root/.cache
+      - ai_logs:/app/logs
+    networks:
+      - sahool-network
+    deploy:
+      resources:
+        limits:
+          cpus: '1.5'
+          memory: 3G
+        reservations:
+          cpus: '0.5'
+          memory: 1G
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 60s
+
+  # ============================================
+  # Nginx Reverse Proxy - الوكيل العكسي
+  # ============================================
+
+  nginx:
+    image: nginx:alpine
+    container_name: sahool-nginx
+    restart: unless-stopped
+    ports:
+      - "${NGINX_HTTP_PORT:-80}:80"
+      - "${NGINX_HTTPS_PORT:-443}:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - nginx_logs:/var/log/nginx
     depends_on:
+      - iot-gateway
       - gateway-edge
+      - ml-engine
+      - agent-ai
+    networks:
+      - sahool-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ============================================
+  # Monitoring & Management Tools - أدوات المراقبة والإدارة
+  # (Optional - use with: docker-compose --profile tools up)
+  # ============================================
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: sahool-pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@sahool.local}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    ports:
+      - "${PGADMIN_PORT:-5050}:80"
+    depends_on:
+      - postgres
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    networks:
+      - sahool-network
+    profiles:
+      - tools
+
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: sahool-redis-commander
+    restart: unless-stopped
+    environment:
+      REDIS_HOSTS: local:redis:6379:2:${REDIS_PASSWORD:-redis_password}
+    ports:
+      - "${REDIS_COMMANDER_PORT:-8081}:8081"
+    depends_on:
+      - redis
+    networks:
+      - sahool-network
+    profiles:
+      - tools
+
+# ============================================
+# Networks - الشبكات
+# ============================================
+
+networks:
+  sahool-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+# ============================================
+# Volumes - وحدات التخزين
+# ============================================
 
 volumes:
   pgdata_sahool:
+    driver: local
+  redis_data:
+    driver: local
   minio_data:
+    driver: local
   ml_models:
     driver: local
   ml_cache:
     driver: local
+  ml_logs:
+    driver: local
   agent_knowledge:
     driver: local
   agent_cache:
+    driver: local
+  ai_logs:
+    driver: local
+  iot_logs:
+    driver: local
+  nginx_logs:
+    driver: local
+  pgadmin_data:
     driver: local
