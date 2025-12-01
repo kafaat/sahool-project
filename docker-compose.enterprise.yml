@@ -29,6 +29,20 @@ services:
     networks:
       - sahool-net
 
+  tika-ocr-server:
+    image: apache/tika:latest-full
+    container_name: tika-ocr-server
+    restart: unless-stopped
+    ports:
+      - "9998:9998"
+    networks:
+      - sahool-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9998/tika"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
   minio:
     image: minio/minio
     container_name: sahool-minio
