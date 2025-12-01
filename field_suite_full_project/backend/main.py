@@ -1,9 +1,12 @@
-from fastapi import FastAPI, HTTPException, status
+from fastapi import FastAPI, HTTPException, status, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, field_validator
-from typing import List, Optional, Literal
+from typing import List, Optional, Literal, AsyncGenerator
 from uuid import uuid4
 from datetime import datetime
+import json
+import asyncio
 
 GeometryType = Literal['Polygon', 'Rectangle', 'Circle', 'Pivot']
 SourceType = Literal['manual', 'auto_ndvi', 'auto_ai', 'import_gis']
@@ -60,7 +63,7 @@ class FieldBoundary(BaseModel):
 
 class AutoDetectRequest(BaseModel):
     mock: bool = True
-    bounds: Optional[List[float]] = None  # [minLng, minLat, maxLng, maxLat]
+    bounds: Optional[List[float]] = None
 
 
 class AutoDetectResponse(BaseModel):
@@ -87,11 +90,28 @@ class ErrorResponse(BaseModel):
     detail: str
 
 
+# AG-UI Event Models
+class AGUIEvent(BaseModel):
+    type: str
+    timestamp: int
+    runId: Optional[str] = None
+
+
+class AGUIMessage(BaseModel):
+    role: str
+    content: str
+
+
+class AGUIRequest(BaseModel):
+    messages: List[AGUIMessage]
+    threadId: Optional[str] = None
+
+
 # Initialize FastAPI app
 app = FastAPI(
     title="Field Suite Backend",
-    description="API for managing agricultural field boundaries with geospatial support",
-    version="1.0.0",
+    description="API for managing agricultural field boundaries with AG-UI protocol support",
+    version="2.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
 )
@@ -99,7 +119,7 @@ app = FastAPI(
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure appropriately for production
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -113,10 +133,156 @@ def get_timestamp() -> str:
     return datetime.utcnow().isoformat() + "Z"
 
 
+def get_ms_timestamp() -> int:
+    return int(datetime.utcnow().timestamp() * 1000)
+
+
+# AG-UI Event Helpers
+def create_agui_event(event_type: str, run_id: str, **kwargs) -> str:
+    event = {
+        "type": event_type,
+        "timestamp": get_ms_timestamp(),
+        "runId": run_id,
+        **kwargs
+    }
+    return f"data: {json.dumps(event)}\n\n"
+
+
+async def stream_agui_response(
+    run_id: str,
+    message_id: str,
+    content: str,
+    tool_calls: Optional[List[dict]] = None
+) -> AsyncGenerator[str, None]:
+    """Stream AG-UI compatible events"""
+
+    # RUN_STARTED
+    yield create_agui_event("RUN_STARTED", run_id)
+    await asyncio.sleep(0.05)
+
+    # TEXT_MESSAGE_START
+    yield create_agui_event("TEXT_MESSAGE_START", run_id, messageId=message_id, role="assistant")
+    await asyncio.sleep(0.05)
+
+    # Stream content word by word
+    words = content.split(" ")
+    for i, word in enumerate(words):
+        delta = word + (" " if i < len(words) - 1 else "")
+        yield create_agui_event("TEXT_MESSAGE_CONTENT", run_id, messageId=message_id, delta=delta)
+        await asyncio.sleep(0.03)
+
+    # TEXT_MESSAGE_END
+    yield create_agui_event("TEXT_MESSAGE_END", run_id, messageId=message_id)
+    await asyncio.sleep(0.05)
+
+    # Tool calls if any
+    if tool_calls:
+        for tc in tool_calls:
+            tool_call_id = str(uuid4())
+            yield create_agui_event("TOOL_CALL_START", run_id, toolCallId=tool_call_id, toolName=tc["name"])
+            await asyncio.sleep(0.05)
+            yield create_agui_event("TOOL_CALL_ARGS", run_id, toolCallId=tool_call_id, delta=json.dumps(tc.get("args", {})))
+            await asyncio.sleep(0.1)
+            yield create_agui_event("TOOL_CALL_END", run_id, toolCallId=tool_call_id, result=tc.get("result"))
+            await asyncio.sleep(0.05)
+
+    # STATE_SNAPSHOT
+    yield create_agui_event("STATE_SNAPSHOT", run_id, snapshot={
+        "fieldsCount": len(FIELDS_DB),
+        "fields": [{"id": f.id, "name": f.name} for f in FIELDS_DB.values()]
+    })
+    await asyncio.sleep(0.05)
+
+    # RUN_FINISHED
+    yield create_agui_event("RUN_FINISHED", run_id)
+
+
 @app.get("/", tags=["Health"])
 def health_check():
     """Health check endpoint"""
-    return {"status": "healthy", "service": "Field Suite Backend", "version": "1.0.0"}
+    return {
+        "status": "healthy",
+        "service": "Field Suite Backend",
+        "version": "2.0.0",
+        "protocol": "AG-UI",
+        "capabilities": ["streaming", "tool_calls", "state_sync"]
+    }
+
+
+# AG-UI Compatible Endpoint
+@app.post("/api/copilotkit", tags=["AG-UI"])
+async def copilotkit_handler(request: Request):
+    """AG-UI compatible streaming endpoint for CopilotKit"""
+    body = await request.json()
+    messages = body.get("messages", [])
+    thread_id = body.get("threadId", str(uuid4()))
+
+    run_id = str(uuid4())
+    message_id = str(uuid4())
+
+    # Parse the last user message
+    user_message = ""
+    if messages:
+        last_message = messages[-1]
+        user_message = last_message.get("content", "").lower()
+
+    # Determine response based on user message
+    response_content = ""
+    tool_calls = []
+
+    if "list" in user_message or "show" in user_message and "field" in user_message:
+        fields = list(FIELDS_DB.values())
+        if fields:
+            field_list = ", ".join([f.name for f in fields])
+            response_content = f"You have {len(fields)} field(s): {field_list}. Would you like more details about any specific field?"
+        else:
+            response_content = "You don't have any fields yet. Would you like me to help you create one or run auto-detection?"
+        tool_calls = [{"name": "listFields", "args": {}, "result": {"count": len(fields)}}]
+
+    elif "auto" in user_message and "detect" in user_message:
+        response_content = "I'll run auto-detection to find field boundaries from satellite imagery. This uses NDVI analysis to identify crop boundaries."
+        tool_calls = [{"name": "autoDetectFields", "args": {"mock": True}, "result": {"detected": 1}}]
+
+    elif "stat" in user_message:
+        fields = list(FIELDS_DB.values())
+        response_content = f"Field Statistics: Total fields: {len(fields)}. " + \
+            f"Types: {', '.join(set(f.geometryType for f in fields)) if fields else 'N/A'}. " + \
+            "Would you like more detailed analytics?"
+        tool_calls = [{"name": "getFieldStatistics", "args": {}, "result": {"total": len(fields)}}]
+
+    elif "recommend" in user_message or "crop" in user_message:
+        response_content = "Based on your field properties, I recommend: 1) Consider crop rotation with legumes to improve soil nitrogen. 2) The field shapes are suitable for precision agriculture. 3) Schedule soil testing before next planting season."
+        tool_calls = [{"name": "getCropRecommendations", "args": {}, "result": {"recommendations": 3}}]
+
+    elif "help" in user_message:
+        response_content = "I can help you with: 1) Creating and managing field boundaries, 2) Auto-detecting fields from satellite imagery, 3) Splitting fields into management zones, 4) Providing crop recommendations, 5) Field statistics and analytics. What would you like to do?"
+
+    elif "hello" in user_message or "hi" in user_message:
+        response_content = "Hello! I'm your Field Assistant. I can help you manage your agricultural fields, detect boundaries, split into zones, and provide crop recommendations. What would you like to do today?"
+
+    else:
+        response_content = f"I understand you want to know about '{user_message}'. I can help with field management tasks like listing fields, auto-detection, zone splitting, and crop recommendations. What specific action would you like me to take?"
+
+    return StreamingResponse(
+        stream_agui_response(run_id, message_id, response_content, tool_calls),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        }
+    )
+
+
+# AG-UI State Endpoint
+@app.get("/api/copilotkit/state", tags=["AG-UI"])
+async def get_agui_state():
+    """Get current application state for AG-UI synchronization"""
+    return {
+        "fields": [f.model_dump() for f in FIELDS_DB.values()],
+        "fieldsCount": len(FIELDS_DB),
+        "lastUpdated": get_timestamp()
+    }
 
 
 @app.get("/fields/", response_model=FieldListResponse, tags=["Fields"])
@@ -144,7 +310,6 @@ def create_field(field: FieldBoundary):
     field_id = field.id or str(uuid4())
     field.id = field_id
 
-    # Set timestamps
     if field.metadata is None:
         field.metadata = FieldMetadata()
     field.metadata.createdAt = get_timestamp()
@@ -165,8 +330,6 @@ def update_field(field_id: str, field: FieldBoundary):
         )
 
     field.id = field_id
-
-    # Preserve createdAt, update updatedAt
     existing = FIELDS_DB[field_id]
     if field.metadata is None:
         field.metadata = FieldMetadata()
