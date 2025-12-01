@@ -1,50 +1,61 @@
-import React, { useState } from 'react';
-import type { FieldBoundary, GeometryType } from './shared/models/field_boundary';
+import React from 'react';
+import { FieldProvider, useFieldContext } from './context/FieldContext';
 import { FieldToolbar } from './components/Toolbar';
+import { FieldList } from './components/FieldList';
 import { FieldMap } from './components/FieldMap';
+import { ToastContainer } from './components/Toast';
+import './styles/main.css';
 
-const App: React.FC = () => {
-  const [activeTool, setActiveTool] = useState<GeometryType | 'select'>('select');
-  const [selectedField, setSelectedField] = useState<FieldBoundary | null>(null);
+const AppContent: React.FC = () => {
+  const { state } = useFieldContext();
 
   return (
-    <div style={{ display: 'flex', height: '100vh', fontFamily: 'sans-serif' }}>
-      <aside style={{ width: 300, borderRight: '1px solid #ddd', padding: 16 }}>
-        <h2>Field Tools (Web)</h2>
-
-        <FieldToolbar
-          activeTool={activeTool}
-          onChangeTool={setActiveTool}
-          onRunAutoDetect={async () => {
-            try {
-              const res = await fetch('http://localhost:8000/fields/auto-detect', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ mock: true }),
-              });
-              const data = await res.json();
-              alert("Auto-detect returned " + data.fields.length);
-            } catch (e) {
-              alert("Backend unreachable");
-            }
-          }}
-        />
-
-        {selectedField && (
-          <div style={{ marginTop: 16 }}>
-            <h4>Selected Field</h4>
-            <p>{selectedField.name}</p>
+    <div className="app-container">
+      {/* Sidebar */}
+      <aside className="sidebar">
+        <div className="sidebar-header">
+          <h1>Field Suite</h1>
+          <p>Agricultural Field Management</p>
+          <div style={{ marginTop: 8 }}>
+            <span className={`status-badge ${state.isApiConnected ? 'online' : 'offline'}`}>
+              <span
+                style={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: '50%',
+                  background: 'currentColor',
+                  display: 'inline-block',
+                }}
+              />
+              {state.isApiConnected ? 'API Connected' : 'API Offline'}
+            </span>
           </div>
-        )}
+        </div>
+
+        <div style={{ flex: 1, overflowY: 'auto' }}>
+          <FieldToolbar />
+          <div style={{ padding: '0 16px 16px' }}>
+            <FieldList />
+          </div>
+        </div>
       </aside>
 
-      <main style={{ flex: 1 }}>
-        <FieldMap
-          activeTool={activeTool}
-          onFieldSaved={setSelectedField}
-        />
+      {/* Main Map Area */}
+      <main className="main-content">
+        <FieldMap />
       </main>
+
+      {/* Toast Notifications */}
+      <ToastContainer />
     </div>
+  );
+};
+
+const App: React.FC = () => {
+  return (
+    <FieldProvider>
+      <AppContent />
+    </FieldProvider>
   );
 };
 
