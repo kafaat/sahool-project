@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field as PydanticField
+from pydantic import BaseModel, ConfigDict, Field as PydanticField
 from typing import Optional, Any
 
 
@@ -27,5 +27,4 @@ class FieldOut(FieldBase):
     bbox: Optional[list[float]] = None
     centroid_geojson: Optional[dict] = None
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)

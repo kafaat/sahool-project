@@ -1,6 +1,7 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from datetime import datetime
 from typing import Optional
+
 
 class AlertBase(BaseModel):
     category: str
@@ -9,8 +10,10 @@ class AlertBase(BaseModel):
     message: str
     field_id: Optional[int] = None
 
+
 class AlertCreate(AlertBase):
     tenant_id: int
+
 
 class AlertOut(AlertBase):
     id: int
@@ -18,5 +21,4 @@ class AlertOut(AlertBase):
     is_read: bool
     created_at: datetime
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)

@@ -1,6 +1,6 @@
-
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from datetime import datetime
+
 
 class SatelliteImageOut(BaseModel):
     id: int
@@ -9,8 +9,7 @@ class SatelliteImageOut(BaseModel):
     cloudcover: float
     ndvi_path: str | None = None
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class SatelliteIngestRequest(BaseModel):

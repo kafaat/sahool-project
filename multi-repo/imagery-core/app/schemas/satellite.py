@@ -1,6 +1,7 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from datetime import datetime
 from typing import Optional, List, Any
+
 
 class SatelliteImageOut(BaseModel):
     id: int
@@ -10,5 +11,4 @@ class SatelliteImageOut(BaseModel):
     ndvi_preview_png: Optional[str] = None
     image_bounds: Optional[Any] = None
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)

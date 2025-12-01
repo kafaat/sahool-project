@@ -1,4 +1,5 @@
-from pydantic import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
 
 class Settings(BaseSettings):
     ENV: str = "local"
@@ -10,7 +11,7 @@ class Settings(BaseSettings):
     MINIO_BUCKET_NDVI: str = "sahool-ndvi"
     REDIS_URL: str = "redis://sahool-redis:6379/0"
 
-    class Config:
-        case_sensitive = True
+    model_config = SettingsConfigDict(case_sensitive=True)
+
 
 settings = Settings()
