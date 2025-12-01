@@ -1,7 +1,9 @@
-fastapi
-uvicorn
-httpx
-redis>=5
-pydantic
-pydantic-settings>=1.0.0
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+httpx>=0.25.0
+redis>=5.0.0
+pydantic>=2.0.0
+pydantic-settings>=2.0.0
+slowapi>=0.1.9
+python-multipart>=0.0.6
 
