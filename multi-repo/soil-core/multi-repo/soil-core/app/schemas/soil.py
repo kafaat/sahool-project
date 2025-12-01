@@ -1,6 +1,7 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from datetime import date
 from typing import Optional
+
 
 class SoilSampleBase(BaseModel):
     sample_date: date
@@ -12,17 +13,18 @@ class SoilSampleBase(BaseModel):
     lab_ref: Optional[str] = None
     notes: Optional[str] = None
 
+
 class SoilSampleCreate(SoilSampleBase):
     tenant_id: int
     field_id: int
+
 
 class SoilSampleOut(SoilSampleBase):
     id: int
     tenant_id: int
     field_id: int
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 class SoilFieldSummary(BaseModel):
     field_id: int

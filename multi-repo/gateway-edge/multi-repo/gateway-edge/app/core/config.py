@@ -1,6 +1,6 @@
-
 from functools import lru_cache
-from pydantic import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
 
 class Settings(BaseSettings):
     PORT: int = 9000
@@ -15,8 +15,7 @@ class Settings(BaseSettings):
     ANALYTICS_URL: str = "http://localhost:8005"
     TIMELINE_URL: str = "http://localhost:9104"
 
-    class Config:
-        env_file=".env"
+    model_config = SettingsConfigDict(env_file=".env")
 
 @lru_cache()
 def get_settings():

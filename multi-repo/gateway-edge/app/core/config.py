@@ -11,8 +11,8 @@ Application settings module.
 from functools import lru_cache
 from typing import Dict, Optional
 
-# Use pydantic-settings BaseSettings (you already have it in your environment)
-from pydantic_settings import BaseSettings
+# Use pydantic-settings BaseSettings (compatible with pydantic v2)
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -33,9 +33,10 @@ class Settings(BaseSettings):
     }
     AUTH_ENABLED: bool = False  # يمكن تفعيلها في الإنتاج
 
-    class Config:
-        env_file = ".env"
-        case_sensitive = True
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        case_sensitive=True,
+    )
 
 
 @lru_cache()
