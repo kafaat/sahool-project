@@ -9,6 +9,7 @@ from contextlib import asynccontextmanager
 import asyncio
 from typing import List
 import logging
+import os
 
 from app.mqtt_client import MQTTClient
 from app.device_manager import DeviceManager
@@ -16,7 +17,10 @@ from app.data_processor import DataProcessor
 from app.api import router as api_router
 
 # Configure logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger(__name__)
 
 # Global instances
@@ -62,13 +66,16 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# CORS
+# CORS Configuration - Secure allowed origins
+allowed_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:9000").split(",")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allowed_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization", "X-Requested-With"],
+    max_age=3600,
 )
 
 # Include API routes
