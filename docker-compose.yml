@@ -33,6 +33,92 @@ services:
     environment:
       DATABASE_URL: postgres://postgres:postgres@postgres:5432/sahool
 
+  # ML Engine Service
+  ml-engine:
+    build:
+      context: ./multi-repo/ml-engine
+      dockerfile: Dockerfile
+    container_name: sahool-ml-engine
+    restart: unless-stopped
+    ports:
+      - "8010:8010"
+    environment:
+      # Service Configuration
+      SERVICE_NAME: ml-engine
+      SERVICE_PORT: 8010
+
+      # ML Model Paths (optional - will use defaults if not set)
+      MODEL_PATH: /app/models
+
+      # Database (if needed for storing predictions)
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/sahool
+
+      # Optional: External APIs
+      # OPENWEATHER_API_KEY: your_key_here
+
+    volumes:
+      # Persist trained models
+      - ml_models:/app/models
+      # Cache for downloaded models
+      - ml_cache:/root/.cache
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8010/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    depends_on:
+      - postgres
+
+  # Agent-AI Service with LangChain
+  agent-ai:
+    build:
+      context: ./multi-repo/agent-ai
+      dockerfile: Dockerfile
+    container_name: sahool-agent-ai
+    restart: unless-stopped
+    ports:
+      - "8002:8002"
+    environment:
+      # Service Configuration
+      SERVICE_NAME: agent-ai
+      SERVICE_PORT: 8002
+
+      # Gateway URL for data fetching
+      GATEWAY_URL: http://gateway-edge:9000
+
+      # LLM Provider (optional - falls back to rule-based if not set)
+      # LLM_PROVIDER: openai  # Options: openai, anthropic, fallback
+      # OPENAI_API_KEY: sk-...
+      # ANTHROPIC_API_KEY: sk-ant-...
+
+      # Vector Store
+      CHROMA_DB_PATH: /app/data/chroma_db
+
+      # Optional: LangSmith tracing
+      # LANGSMITH_API_KEY: ...
+      # LANGSMITH_TRACING: true
+
+    volumes:
+      # Persist vector database
+      - agent_knowledge:/app/data
+      # Cache for embeddings models
+      - agent_cache:/root/.cache
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    depends_on:
+      - gateway-edge
+
 volumes:
   pgdata_sahool:
   minio_data:
+  ml_models:
+    driver: local
+  ml_cache:
+    driver: local
+  agent_knowledge:
+    driver: local
+  agent_cache:
+    driver: local

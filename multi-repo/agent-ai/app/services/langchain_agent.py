@@ -1,0 +1,433 @@
+"""
+LangChain-based Agricultural Agent with RAG
+Advanced NLP capabilities for agricultural advisory
+"""
+
+import os
+import logging
+from typing import Dict, Any, List, Optional
+
+from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.runnables import RunnablePassthrough, RunnableLambda
+from langchain.memory import ConversationBufferMemory
+from langchain.chains import ConversationalRetrievalChain
+
+# LLM imports (will work with env vars)
+try:
+    from langchain_openai import ChatOpenAI
+    OPENAI_AVAILABLE = True
+except ImportError:
+    OPENAI_AVAILABLE = False
+
+try:
+    from langchain_anthropic import ChatAnthropic
+    ANTHROPIC_AVAILABLE = True
+except ImportError:
+    ANTHROPIC_AVAILABLE = False
+
+from app.services.knowledge_base import get_knowledge_base
+
+logger = logging.getLogger(__name__)
+
+
+class AgriculturalAgent:
+    """Advanced agricultural agent with LangChain and RAG"""
+
+    def __init__(self, llm_provider: str = "openai", model_name: Optional[str] = None):
+        """
+        Initialize agricultural agent
+
+        Args:
+            llm_provider: "openai", "anthropic", or "fallback"
+            model_name: Specific model name (e.g., "gpt-4", "claude-3-opus")
+        """
+        self.llm_provider = llm_provider
+        self.llm = self._initialize_llm(llm_provider, model_name)
+        self.knowledge_base = get_knowledge_base()
+        self.memory = ConversationBufferMemory(
+            memory_key="chat_history",
+            return_messages=True,
+            output_key="answer"
+        )
+
+        # Initialize prompt templates
+        self.system_prompt = self._get_system_prompt()
+        self.rag_prompt = self._get_rag_prompt()
+
+        logger.info(f"Agricultural Agent initialized with {llm_provider} provider")
+
+    def _initialize_llm(self, provider: str, model_name: Optional[str]):
+        """Initialize LLM based on provider"""
+        if provider == "openai" and OPENAI_AVAILABLE:
+            api_key = os.getenv("OPENAI_API_KEY")
+            if not api_key:
+                logger.warning("OPENAI_API_KEY not set, falling back to rule-based system")
+                return None
+
+            return ChatOpenAI(
+                model=model_name or "gpt-4-turbo-preview",
+                temperature=0.3,
+                api_key=api_key
+            )
+
+        elif provider == "anthropic" and ANTHROPIC_AVAILABLE:
+            api_key = os.getenv("ANTHROPIC_API_KEY")
+            if not api_key:
+                logger.warning("ANTHROPIC_API_KEY not set, falling back to rule-based system")
+                return None
+
+            return ChatAnthropic(
+                model=model_name or "claude-3-sonnet-20240229",
+                temperature=0.3,
+                api_key=api_key
+            )
+
+        else:
+            logger.info("Using fallback rule-based system (no LLM)")
+            return None
+
+    def _get_system_prompt(self) -> str:
+        """Get system prompt for the agricultural agent"""
+        return """أنت مستشار زراعي خبير متخصص في الزراعة الذكية والدقيقة. مهمتك مساعدة المزارعين في:
+
+1. **تحليل بيانات الحقول**: NDVI، رطوبة التربة، درجات الحرارة، الأمطار
+2. **تشخيص المشاكل**: الإجهاد المائي، نقص المغذيات، الأمراض، الآفات
+3. **تقديم توصيات**: الري، التسميد، المكافحة، العناية بالمحاصيل
+4. **التنبؤ والتخطيط**: توقعات المحصول، إدارة المخاطر، التخطيط الموسمي
+
+**إرشادات الرد:**
+- استخدم اللغة العربية الفصحى البسيطة والواضحة
+- كن محدداً ودقيقاً في التوصيات
+- اعتمد على البيانات والمعرفة العلمية
+- قدم أولويات واضحة (عاجل، مهم، متابعة)
+- استخدم الرموز التعبيرية بحكمة لتوضيح الأولويات:
+  * 🔴 للمشاكل الحرجة التي تحتاج تدخل فوري
+  * 🟡 للتحذيرات المهمة
+  * 🟢 للحالات الجيدة
+  * 💧 للري
+  * 🌱 للنمو والتطور
+  * 🔬 للتحليلات العلمية
+
+**نهجك:**
+1. حلل البيانات المتوفرة بدقة
+2. اربط المؤشرات المختلفة ببعضها
+3. استخدم المعرفة الزراعية من قاعدة البيانات
+4. قدم توصيات عملية قابلة للتنفيذ
+5. اشرح الأسباب والتوقعات
+
+تذكر: أنت تساعد مزارعين حقيقيين، نصائحك تؤثر على معيشتهم ومحاصيلهم.
+"""
+
+    def _get_rag_prompt(self) -> ChatPromptTemplate:
+        """Get RAG prompt template"""
+        template = """استخدم المعلومات التالية من قاعدة المعرفة الزراعية للإجابة على السؤال:
+
+**المعرفة الزراعية ذات الصلة:**
+{context}
+
+**بيانات الحقل الحالية:**
+{field_data}
+
+**السؤال/الطلب:**
+{question}
+
+**تعليمات:**
+1. استخدم المعرفة المتوفرة أعلاه كمرجع أساسي
+2. حلل بيانات الحقل بدقة وربطها بالمعرفة الزراعية
+3. قدم توصيات محددة وعملية مع الأولويات
+4. إذا كانت البيانات غير كافية، اذكر ذلك واطلب معلومات إضافية
+5. كن واضحاً ومباشراً في ردك
+
+الرد:"""
+
+        return ChatPromptTemplate.from_messages([
+            ("system", self.system_prompt),
+            ("human", template),
+        ])
+
+    async def analyze_field(
+        self,
+        field_id: int,
+        field_data: Dict[str, Any],
+        query: str = "قدم تحليل شامل وتوصيات للحقل"
+    ) -> Dict[str, Any]:
+        """
+        Analyze field using RAG and LLM
+
+        Args:
+            field_id: Field ID
+            field_data: Field context (soil, weather, ndvi, alerts)
+            query: User query or default analysis request
+
+        Returns:
+            Analysis with recommendations
+        """
+        try:
+            # Get relevant knowledge from vector store
+            context = self.knowledge_base.get_relevant_context(query, field_data)
+
+            # Prepare field data summary
+            field_summary = self._format_field_data(field_data)
+
+            if self.llm:
+                # Use LLM with RAG
+                response = await self._llm_based_analysis(
+                    context=context,
+                    field_data=field_summary,
+                    question=query
+                )
+            else:
+                # Fallback to enhanced rule-based system
+                response = await self._rule_based_analysis(
+                    context=context,
+                    field_data=field_data,
+                    question=query
+                )
+
+            return {
+                "field_id": field_id,
+                "analysis": response,
+                "knowledge_sources": len(context.split("\n")) if context else 0,
+                "llm_provider": self.llm_provider if self.llm else "rule-based"
+            }
+
+        except Exception as e:
+            logger.error(f"Error in field analysis: {e}", exc_info=True)
+            return {
+                "field_id": field_id,
+                "analysis": f"⚠️ حدث خطأ في التحليل: {str(e)}",
+                "error": str(e)
+            }
+
+    async def _llm_based_analysis(
+        self,
+        context: str,
+        field_data: str,
+        question: str
+    ) -> str:
+        """LLM-based analysis with RAG"""
+        try:
+            # Build the chain
+            chain = (
+                {
+                    "context": RunnableLambda(lambda _: context),
+                    "field_data": RunnableLambda(lambda _: field_data),
+                    "question": RunnablePassthrough()
+                }
+                | self.rag_prompt
+                | self.llm
+                | StrOutputParser()
+            )
+
+            # Invoke the chain
+            response = await chain.ainvoke(question)
+            return response
+
+        except Exception as e:
+            logger.error(f"LLM analysis error: {e}")
+            # Fallback to rule-based
+            return await self._rule_based_analysis({}, field_data, question)
+
+    async def _rule_based_analysis(
+        self,
+        context: str,
+        field_data: Dict[str, Any],
+        question: str
+    ) -> str:
+        """Enhanced rule-based analysis (fallback when no LLM)"""
+        warnings = []
+        recommendations = []
+        priority = "normal"
+
+        # Soil analysis
+        soil = field_data.get("soil_summary", {})
+        if soil:
+            ec = soil.get("ec_avg")
+            ph = soil.get("ph_avg")
+            moisture = soil.get("moisture_avg")
+
+            if ec and ec > 4:
+                warnings.append("🔴 **ملوحة التربة مرتفعة جداً** (EC > 4 dS/m)")
+                recommendations.append("💧 **عاجل**: قم بغسل التربة بري غزير وحسّن الصرف. أضف الجبس الزراعي بمعدل 2-3 طن/هكتار.")
+                priority = "high"
+            elif ec and ec > 2:
+                warnings.append("🟡 ملوحة التربة متوسطة (EC 2-4 dS/m)")
+                recommendations.append("💧 راقب الملوحة عن كثب. تجنب الأسمدة الملحية واستخدم الري بالتنقيط.")
+
+            if ph and (ph < 5.5 or ph > 7.5):
+                warnings.append(f"🟡 درجة حموضة التربة خارج النطاق المثالي (pH: {ph:.1f})")
+                if ph < 5.5:
+                    recommendations.append("🔬 أضف الجير الزراعي لرفع pH. الجرعة تعتمد على نوع التربة والمحصول.")
+                else:
+                    recommendations.append("🔬 أضف كبريت زراعي أو أسمدة حمضية لخفض pH.")
+
+            if moisture and moisture < 20:
+                warnings.append(f"💧 **رطوبة التربة منخفضة** ({moisture:.1f}%)")
+                recommendations.append("💧 **مهم**: قم بالري خلال 12-24 ساعة القادمة لتجنب الإجهاد المائي.")
+                if priority != "high":
+                    priority = "medium"
+
+        # Weather analysis
+        weather = field_data.get("weather_forecast", {})
+        if weather:
+            points = weather.get("points", [])
+            if points:
+                max_temp = max((p.get("temp_c") or 0) for p in points)
+                total_rain = sum((p.get("rain_mm") or 0) for p in points)
+
+                if max_temp > 40:
+                    warnings.append(f"🌡️ **درجات حرارة مرتفعة متوقعة** ({max_temp:.0f}°م)")
+                    recommendations.append("🌡️ زد معدل الري 20-30%. تجنب الري في ساعات الذروة الحرارية (12-4 مساءً).")
+
+                if total_rain > 30:
+                    warnings.append(f"🌧️ أمطار متوقعة ({total_rain:.0f} مم)")
+                    recommendations.append("🌧️ قلل الري حسب كمية الأمطار. تأكد من كفاءة الصرف لتجنب تجمع المياه.")
+
+        # NDVI analysis
+        ndvi_data = field_data.get("imagery_latest", {})
+        if ndvi_data:
+            ndvi_avg = ndvi_data.get("ndvi_avg")
+            if ndvi_avg and ndvi_avg < 0.4:
+                warnings.append(f"🔴 **مؤشر NDVI منخفض جداً** ({ndvi_avg:.2f})")
+                recommendations.append("🌱 **عاجل**: افحص الحقل ميدانياً. قد يكون هناك إجهاد مائي أو نقص مغذيات أو مرض. اختبر التربة وراجع برنامج التسميد.")
+                priority = "high"
+            elif ndvi_avg and ndvi_avg < 0.6:
+                warnings.append(f"🟡 مؤشر NDVI أقل من المثالي ({ndvi_avg:.2f})")
+                recommendations.append("🌱 راقب النباتات عن كثب. تحقق من الري والتسميد. قد تحتاج تسميد ورقي نيتروجيني.")
+
+        # Build response
+        response_parts = []
+
+        if priority == "high":
+            response_parts.append("## 🔴 تنبيه: حالة حرجة تحتاج تدخل فوري\n")
+        elif priority == "medium":
+            response_parts.append("## 🟡 تحذير: توجد مؤشرات تحتاج اهتمام\n")
+        else:
+            response_parts.append("## 🟢 الحالة العامة مستقرة\n")
+
+        if warnings:
+            response_parts.append("### 📊 المؤشرات والتحذيرات:")
+            for w in warnings:
+                response_parts.append(f"- {w}")
+            response_parts.append("")
+
+        if recommendations:
+            response_parts.append("### 📋 التوصيات والإجراءات:")
+            for i, r in enumerate(recommendations, 1):
+                response_parts.append(f"{i}. {r}")
+            response_parts.append("")
+
+        if context and "لا توجد" not in context:
+            response_parts.append("### 📚 معلومات إضافية من قاعدة المعرفة:")
+            response_parts.append(context)
+            response_parts.append("")
+
+        if not warnings and not recommendations:
+            response_parts.append("✅ **الوضع جيد**: جميع المؤشرات في النطاق المقبول. استمر بالبرنامج الحالي مع المتابعة الدورية.")
+
+        response_parts.append("\n---")
+        response_parts.append("💡 **ملاحظة**: هذا تحليل آلي مبني على البيانات المتوفرة. للحصول على نصائح أكثر دقة، يُنصح بفحص ميداني من متخصص.")
+
+        return "\n".join(response_parts)
+
+    def _format_field_data(self, field_data: Dict[str, Any]) -> str:
+        """Format field data for LLM prompt"""
+        parts = []
+
+        # Soil data
+        soil = field_data.get("soil_summary", {})
+        if soil:
+            parts.append("**بيانات التربة:**")
+            if soil.get("ph_avg"):
+                parts.append(f"- pH: {soil['ph_avg']:.1f}")
+            if soil.get("ec_avg"):
+                parts.append(f"- EC: {soil['ec_avg']:.1f} dS/m")
+            if soil.get("moisture_avg"):
+                parts.append(f"- الرطوبة: {soil['moisture_avg']:.1f}%")
+            parts.append("")
+
+        # Weather data
+        weather = field_data.get("weather_forecast", {})
+        if weather and weather.get("points"):
+            parts.append("**توقعات الطقس (72 ساعة):**")
+            points = weather["points"][:3]  # First 3 points
+            for p in points:
+                parts.append(f"- درجة الحرارة: {p.get('temp_c', 'N/A')}°م، أمطار: {p.get('rain_mm', 0):.1f}مم")
+            parts.append("")
+
+        # NDVI data
+        ndvi = field_data.get("imagery_latest", {})
+        if ndvi:
+            parts.append("**بيانات NDVI:**")
+            if ndvi.get("ndvi_avg"):
+                parts.append(f"- متوسط NDVI: {ndvi['ndvi_avg']:.2f}")
+            parts.append("")
+
+        # Alerts
+        alerts = field_data.get("alerts", [])
+        if alerts:
+            parts.append(f"**التنبيهات الأخيرة ({len(alerts)}):**")
+            for alert in alerts[:3]:  # First 3 alerts
+                parts.append(f"- {alert.get('message', 'تنبيه')}")
+            parts.append("")
+
+        return "\n".join(parts) if parts else "لا توجد بيانات متوفرة"
+
+    async def chat(
+        self,
+        message: str,
+        field_data: Optional[Dict[str, Any]] = None,
+        session_id: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Chat with the agent (conversational interface)
+
+        Args:
+            message: User message
+            field_data: Optional field context
+            session_id: Session ID for memory persistence
+
+        Returns:
+            Agent response
+        """
+        try:
+            if self.llm:
+                # Use conversational chain with memory
+                response = await self.analyze_field(
+                    field_id=field_data.get("field_id", 0) if field_data else 0,
+                    field_data=field_data or {},
+                    query=message
+                )
+                return response
+            else:
+                # Fallback
+                return {
+                    "response": "عذراً، خدمة الدردشة غير متوفرة حالياً. يرجى استخدام التحليل الآلي للحقول.",
+                    "llm_available": False
+                }
+
+        except Exception as e:
+            logger.error(f"Chat error: {e}")
+            return {
+                "response": f"⚠️ حدث خطأ: {str(e)}",
+                "error": str(e)
+            }
+
+
+# Global agent instance
+agent_instance: Optional[AgriculturalAgent] = None
+
+
+def get_agent(llm_provider: str = None) -> AgriculturalAgent:
+    """Get or create agent instance"""
+    global agent_instance
+
+    if llm_provider is None:
+        llm_provider = os.getenv("LLM_PROVIDER", "openai")
+
+    if agent_instance is None:
+        agent_instance = AgriculturalAgent(llm_provider=llm_provider)
+
+    return agent_instance

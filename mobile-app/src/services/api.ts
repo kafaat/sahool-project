@@ -104,7 +104,7 @@ export const markAlertAsRead = async (alertId: number) => {
   return response.data;
 };
 
-// AI Agent APIs
+// AI Agent APIs (Enhanced with LangChain)
 export const getFieldAdvice = async (fieldId: number) => {
   const response = await apiClient.get(`/api/agent/field/${fieldId}/advice`);
   return response.data;
@@ -112,6 +112,39 @@ export const getFieldAdvice = async (fieldId: number) => {
 
 export const getNDVIAnalysis = async (fieldId: number) => {
   const response = await apiClient.get(`/api/agent/field/${fieldId}/ndvi-analysis`);
+  return response.data;
+};
+
+// New LangChain-based APIs
+export const analyzeFieldEnhanced = async (fieldId: number, query?: string) => {
+  const response = await apiClient.post('/api/v1/agent/analyze/field', null, {
+    params: {
+      field_id: fieldId,
+      tenant_id: 1, // TODO: Get from auth context
+      query: query || 'قدم تحليل شامل وتوصيات للحقل'
+    }
+  });
+  return response.data;
+};
+
+export const chatWithAgent = async (message: string, fieldId?: number) => {
+  const response = await apiClient.post('/api/v1/agent/chat', {
+    message,
+    field_id: fieldId,
+    tenant_id: fieldId ? 1 : undefined, // TODO: Get from auth context
+  });
+  return response.data;
+};
+
+export const searchKnowledge = async (query: string, limit: number = 5) => {
+  const response = await apiClient.get('/api/v1/agent/knowledge/search', {
+    params: { query, limit }
+  });
+  return response.data;
+};
+
+export const getAgentStatus = async () => {
+  const response = await apiClient.get('/api/v1/agent/status');
   return response.data;
 };
 
