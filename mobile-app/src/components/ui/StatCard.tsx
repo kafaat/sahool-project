@@ -21,6 +21,9 @@ interface StatCardProps {
   color?: 'primary' | 'secondary' | 'success' | 'error' | 'warning' | 'info';
   variant?: 'default' | 'gradient' | 'minimal';
   style?: ViewStyle;
+  // Accessibility props
+  accessibilityLabel?: string;
+  accessibilityHint?: string;
 }
 
 export default function StatCard({
@@ -32,6 +35,8 @@ export default function StatCard({
   color = 'primary',
   variant = 'default',
   style,
+  accessibilityLabel,
+  accessibilityHint,
 }: StatCardProps) {
   const getTrendColor = () => {
     if (!trend) return Theme.colors.text.secondary;
@@ -43,9 +48,28 @@ export default function StatCard({
     return trend.isPositive ? '↑' : '↓';
   };
 
+  const getAccessibilityLabel = () => {
+    if (accessibilityLabel) return accessibilityLabel;
+
+    let label = `${title}: ${value}`;
+    if (subtitle) label += `. ${subtitle}`;
+    if (trend) {
+      const trendText = trend.isPositive ? 'ارتفاع' : 'انخفاض';
+      label += `. ${trendText} ${Math.abs(trend.value)} بالمئة`;
+    }
+    return label;
+  };
+
   if (variant === 'gradient') {
     return (
-      <Card elevation="lg" rounded="xl" style={[styles.container, style]}>
+      <Card
+        elevation="lg"
+        rounded="xl"
+        style={[styles.container, style]}
+        accessibilityRole="summary"
+        accessibilityLabel={getAccessibilityLabel()}
+        accessibilityHint={accessibilityHint}
+      >
         <LinearGradient
           colors={[Theme.colors[color].main, Theme.colors[color].dark]}
           start={{ x: 0, y: 0 }}
@@ -77,7 +101,13 @@ export default function StatCard({
 
   if (variant === 'minimal') {
     return (
-      <View style={[styles.minimal, style]}>
+      <View
+        style={[styles.minimal, style]}
+        accessible={true}
+        accessibilityRole="summary"
+        accessibilityLabel={getAccessibilityLabel()}
+        accessibilityHint={accessibilityHint}
+      >
         <View style={styles.header}>
           {icon && <View style={styles.iconContainer}>{icon}</View>}
           <Text style={styles.titleMinimal}>{title}</Text>
@@ -96,7 +126,14 @@ export default function StatCard({
 
   // Default variant
   return (
-    <Card elevation="md" rounded="lg" style={[styles.container, style]}>
+    <Card
+      elevation="md"
+      rounded="lg"
+      style={[styles.container, style]}
+      accessibilityRole="summary"
+      accessibilityLabel={getAccessibilityLabel()}
+      accessibilityHint={accessibilityHint}
+    >
       <View style={styles.header}>
         {icon && (
           <View style={[styles.iconContainer, { backgroundColor: `${Theme.colors[color].main}20` }]}>

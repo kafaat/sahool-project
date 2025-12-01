@@ -24,6 +24,10 @@ interface ChipProps {
   selected?: boolean;
   disabled?: boolean;
   style?: ViewStyle;
+  // Accessibility props
+  accessibilityLabel?: string;
+  accessibilityHint?: string;
+  deleteAccessibilityLabel?: string;
 }
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -40,6 +44,9 @@ export default function Chip({
   selected = false,
   disabled = false,
   style,
+  accessibilityLabel,
+  accessibilityHint,
+  deleteAccessibilityLabel,
 }: ChipProps) {
   const scale = useSharedValue(1);
 
@@ -101,7 +108,15 @@ export default function Chip({
         {label}
       </Text>
       {onDelete && (
-        <Pressable onPress={onDelete} style={styles.deleteButton} disabled={disabled}>
+        <Pressable
+          onPress={onDelete}
+          style={styles.deleteButton}
+          disabled={disabled}
+          accessible={true}
+          accessibilityRole="button"
+          accessibilityLabel={deleteAccessibilityLabel || `حذف ${label}`}
+          accessibilityHint="انقر مزدوج للحذف"
+        >
           {deleteIcon || <Text style={{ color: getTextColor() }}>×</Text>}
         </Pressable>
       )}
@@ -116,13 +131,28 @@ export default function Chip({
         onPressOut={handlePressOut}
         disabled={disabled}
         style={[animatedStyle, getChipStyles(), style]}
+        accessible={true}
+        accessibilityRole="button"
+        accessibilityLabel={accessibilityLabel || label}
+        accessibilityHint={accessibilityHint}
+        accessibilityState={{ selected, disabled }}
       >
         {content}
       </AnimatedPressable>
     );
   }
 
-  return <View style={[getChipStyles(), style]}>{content}</View>;
+  return (
+    <View
+      style={[getChipStyles(), style]}
+      accessible={true}
+      accessibilityRole="text"
+      accessibilityLabel={accessibilityLabel || label}
+      accessibilityState={{ selected }}
+    >
+      {content}
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({

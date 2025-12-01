@@ -22,6 +22,8 @@ interface ProgressBarProps {
   label?: string;
   variant?: 'default' | 'gradient' | 'striped';
   animated?: boolean;
+  // Accessibility props
+  accessibilityLabel?: string;
 }
 
 export default function ProgressBar({
@@ -32,6 +34,7 @@ export default function ProgressBar({
   label,
   variant = 'default',
   animated = true,
+  accessibilityLabel,
 }: ProgressBarProps) {
   const progressValue = useSharedValue(0);
 
@@ -53,11 +56,19 @@ export default function ProgressBar({
   const getColor = () => Theme.colors[color].main;
   const getDarkColor = () => Theme.colors[color].dark;
 
+  const progressText = `${Math.round(progress)}%`;
+
   return (
-    <View style={styles.container}>
+    <View
+      style={styles.container}
+      accessible={true}
+      accessibilityRole="progressbar"
+      accessibilityLabel={accessibilityLabel || label || `التقدم ${progressText}`}
+      accessibilityValue={{ now: progress, min: 0, max: 100, text: progressText }}
+    >
       {showLabel && (
         <Text style={styles.label}>
-          {label || `${Math.round(progress)}%`}
+          {label || progressText}
         </Text>
       )}
       <View style={[styles.track, { height, borderRadius: height / 2 }]}>

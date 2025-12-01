@@ -21,6 +21,10 @@ interface CardProps {
   onPress?: () => void;
   pressable?: boolean;
   rounded?: 'sm' | 'md' | 'lg' | 'xl';
+  // Accessibility props
+  accessibilityLabel?: string;
+  accessibilityHint?: string;
+  accessibilityRole?: 'none' | 'button' | 'link' | 'header' | 'summary';
 }
 
 export default function Card({
@@ -31,6 +35,9 @@ export default function Card({
   onPress,
   pressable = false,
   rounded = 'lg',
+  accessibilityLabel,
+  accessibilityHint,
+  accessibilityRole = 'none',
 }: CardProps) {
   const scale = useSharedValue(1);
   const opacity = useSharedValue(1);
@@ -70,6 +77,10 @@ export default function Card({
             cardStyle,
             pressed && styles.pressed,
           ]}
+          accessible={true}
+          accessibilityRole={onPress ? 'button' : accessibilityRole}
+          accessibilityLabel={accessibilityLabel}
+          accessibilityHint={accessibilityHint}
         >
           {children}
         </Pressable>
@@ -77,7 +88,16 @@ export default function Card({
     );
   }
 
-  return <View style={cardStyle}>{children}</View>;
+  return (
+    <View
+      style={cardStyle}
+      accessible={accessibilityLabel ? true : false}
+      accessibilityRole={accessibilityRole}
+      accessibilityLabel={accessibilityLabel}
+    >
+      {children}
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({

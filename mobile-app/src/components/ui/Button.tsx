@@ -34,6 +34,9 @@ interface ButtonProps {
   iconPosition?: 'left' | 'right';
   style?: ViewStyle;
   textStyle?: TextStyle;
+  // Accessibility props
+  accessibilityLabel?: string;
+  accessibilityHint?: string;
 }
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -51,6 +54,8 @@ export default function Button({
   iconPosition = 'left',
   style,
   textStyle,
+  accessibilityLabel,
+  accessibilityHint,
 }: ButtonProps) {
   const scale = useSharedValue(1);
 
@@ -130,6 +135,11 @@ export default function Button({
         onPressOut={handlePressOut}
         disabled={disabled || loading}
         style={[animatedStyle, style]}
+        accessible={true}
+        accessibilityRole="button"
+        accessibilityLabel={accessibilityLabel || title}
+        accessibilityHint={accessibilityHint}
+        accessibilityState={{ disabled: disabled || loading, busy: loading }}
       >
         <LinearGradient
           colors={[Theme.colors[color].main, Theme.colors[color].dark]}
@@ -150,6 +160,11 @@ export default function Button({
       onPressOut={handlePressOut}
       disabled={disabled || loading}
       style={[animatedStyle, getButtonStyles(), style]}
+      accessible={true}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel || title}
+      accessibilityHint={accessibilityHint}
+      accessibilityState={{ disabled: disabled || loading, busy: loading }}
     >
       {buttonContent}
     </AnimatedPressable>
