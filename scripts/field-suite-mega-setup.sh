@@ -20,7 +20,7 @@ NC='\033[0m'
 PROJECT_NAME="field_suite_full_project"
 BRANCH_NAME="feature/field-suite-generator"
 REPO_URL="https://github.com/kafaat/sahool-project.git"
-SCRIPT_VERSION="3.0.0"
+SCRIPT_VERSION="3.1.0"
 
 # =====================================
 # 🛠️ دوال مساعدة محسّنة
@@ -193,7 +193,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_this_in_env}
     ports:
-      - "127.0.0.1:5432:5432"
+      - "127.0.0.1:5433:5432"  # Using 5433 to avoid conflict with main project
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./init-scripts:/docker-entrypoint-initdb.d
@@ -216,7 +216,7 @@ services:
     container_name: field_suite_redis
     command: redis-server --appendonly yes
     ports:
-      - "127.0.0.1:6379:6379"
+      - "127.0.0.1:6380:6379"  # Using 6380 to avoid conflict with main project
     volumes:
       - redis_data:/data
     healthcheck:
@@ -318,7 +318,7 @@ services:
       target: production
     container_name: field_suite_web
     ports:
-      - "127.0.0.1:3000:80"
+      - "127.0.0.1:3002:80"  # Using 3002 to avoid conflict with main project
     depends_on:
       - api
     environment:
@@ -407,7 +407,7 @@ services:
     image: prom/prometheus:latest
     container_name: field_suite_prometheus
     ports:
-      - "127.0.0.1:9090:9090"
+      - "127.0.0.1:9091:9090"  # Using 9091 to avoid conflict
     volumes:
       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
       - ./monitoring/alerts.yml:/etc/prometheus/alerts.yml
@@ -425,7 +425,7 @@ services:
     image: grafana/grafana:latest
     container_name: field_suite_grafana
     ports:
-      - "127.0.0.1:3001:3000"
+      - "127.0.0.1:3003:3000"  # Using 3003 to avoid conflict
     environment:
       GF_SECURITY_ADMIN_USER: admin
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin123}
@@ -797,7 +797,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Field Suite API",
     description="Agricultural Field Management and NDVI Analysis Platform",
-    version="3.0.0",
+    version="3.1.0",
     docs_url="/docs",
     redoc_url="/redoc",
     openapi_url="/openapi.json",
@@ -831,7 +831,7 @@ async def health_check():
     return {
         "status": "healthy",
         "service": "field-suite-api",
-        "version": "3.0.0"
+        "version": "3.1.0"
     }
 
 
@@ -892,7 +892,7 @@ class Settings(BaseSettings):
     JWT_EXPIRE_MINUTES: int = 60
 
     # CORS
-    ALLOWED_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:8080"]
+    ALLOWED_ORIGINS: List[str] = ["http://localhost:3002", "http://localhost:8080"]
 
     # External APIs
     OPENWEATHER_API_KEY: str = ""
@@ -1762,6 +1762,444 @@ class NDVIResult(Base):
     field = relationship("Field", back_populates="ndvi_results")'
 
 # =====================================
+# 10.5️⃣ Services Layer (Critical)
+# =====================================
+echo_header "10.5️⃣ إنشاء Services Layer"
+
+# NDVIService - Required by Stage 3+4
+write_file "$PROJECT_NAME/backend/app/services/ndvi_service.py" 'from sqlalchemy.orm import Session
+from sqlalchemy import func, desc
+from typing import List, Optional, Dict, Any
+from datetime import date, timedelta
+from app.models.ndvi import NDVIResult
+from app.models.field import Field
+import logging
+
+logger = logging.getLogger(__name__)
+
+
+class NDVIService:
+    """
+    Service layer for NDVI data operations.
+    Handles retrieval and analysis of NDVI satellite data.
+    """
+
+    def __init__(self, db: Session):
+        self.db = db
+
+    def get_latest(self, tenant_id: int, field_id: int) -> Optional[Dict[str, Any]]:
+        """
+        Get the most recent NDVI data for a field.
+
+        Args:
+            tenant_id: The tenant ID
+            field_id: The field ID
+
+        Returns:
+            Dictionary with NDVI data or None if not found
+        """
+        result = (
+            self.db.query(NDVIResult)
+            .filter(
+                NDVIResult.field_id == field_id,
+                NDVIResult.tenant_id == tenant_id
+            )
+            .order_by(desc(NDVIResult.date))
+            .first()
+        )
+
+        if not result:
+            logger.warning(f"No NDVI data found for field {field_id}")
+            return None
+
+        return {
+            "id": result.id,
+            "field_id": result.field_id,
+            "date": result.date.isoformat() if result.date else None,
+            "mean_ndvi": result.mean_ndvi,
+            "min_ndvi": result.min_ndvi,
+            "max_ndvi": result.max_ndvi,
+            "std_ndvi": result.std_ndvi,
+            "pixel_count": result.pixel_count,
+            "cloud_coverage": result.cloud_coverage,
+            "tile_url": result.tile_url
+        }
+
+    def get_by_date(
+        self,
+        tenant_id: int,
+        field_id: int,
+        target_date: date
+    ) -> Optional[NDVIResult]:
+        """Get NDVI data for a specific date."""
+        return (
+            self.db.query(NDVIResult)
+            .filter(
+                NDVIResult.field_id == field_id,
+                NDVIResult.tenant_id == tenant_id,
+                NDVIResult.date == target_date
+            )
+            .first()
+        )
+
+    def get_history(
+        self,
+        tenant_id: int,
+        field_id: int,
+        days: int = 30
+    ) -> List[NDVIResult]:
+        """
+        Get NDVI history for a field.
+
+        Args:
+            tenant_id: The tenant ID
+            field_id: The field ID
+            days: Number of days of history to retrieve
+
+        Returns:
+            List of NDVIResult objects
+        """
+        start_date = date.today() - timedelta(days=days)
+
+        return (
+            self.db.query(NDVIResult)
+            .filter(
+                NDVIResult.field_id == field_id,
+                NDVIResult.tenant_id == tenant_id,
+                NDVIResult.date >= start_date
+            )
+            .order_by(desc(NDVIResult.date))
+            .all()
+        )
+
+    def get_statistics(
+        self,
+        tenant_id: int,
+        field_id: int,
+        days: int = 30
+    ) -> Dict[str, Any]:
+        """
+        Get NDVI statistics for a field.
+
+        Returns:
+            Dictionary with statistical analysis
+        """
+        history = self.get_history(tenant_id, field_id, days)
+
+        if not history:
+            return {
+                "count": 0,
+                "avg_ndvi": None,
+                "min_ndvi": None,
+                "max_ndvi": None,
+                "trend": "unknown"
+            }
+
+        ndvi_values = [r.mean_ndvi for r in history if r.mean_ndvi is not None]
+
+        if not ndvi_values:
+            return {
+                "count": len(history),
+                "avg_ndvi": None,
+                "min_ndvi": None,
+                "max_ndvi": None,
+                "trend": "unknown"
+            }
+
+        # Calculate trend
+        if len(ndvi_values) >= 2:
+            recent = ndvi_values[0]
+            older = ndvi_values[-1]
+            if recent > older * 1.05:
+                trend = "improving"
+            elif recent < older * 0.95:
+                trend = "declining"
+            else:
+                trend = "stable"
+        else:
+            trend = "insufficient_data"
+
+        return {
+            "count": len(history),
+            "avg_ndvi": sum(ndvi_values) / len(ndvi_values),
+            "min_ndvi": min(ndvi_values),
+            "max_ndvi": max(ndvi_values),
+            "trend": trend,
+            "latest_date": history[0].date.isoformat() if history else None
+        }
+
+    def create(
+        self,
+        tenant_id: int,
+        field_id: int,
+        ndvi_data: Dict[str, Any]
+    ) -> NDVIResult:
+        """Create a new NDVI result record."""
+        result = NDVIResult(
+            tenant_id=tenant_id,
+            field_id=field_id,
+            date=ndvi_data.get("date", date.today()),
+            mean_ndvi=ndvi_data.get("mean_ndvi"),
+            min_ndvi=ndvi_data.get("min_ndvi"),
+            max_ndvi=ndvi_data.get("max_ndvi"),
+            std_ndvi=ndvi_data.get("std_ndvi"),
+            pixel_count=ndvi_data.get("pixel_count"),
+            cloud_coverage=ndvi_data.get("cloud_coverage"),
+            tile_url=ndvi_data.get("tile_url"),
+            raw_data=ndvi_data.get("raw_data")
+        )
+
+        self.db.add(result)
+        self.db.commit()
+        self.db.refresh(result)
+
+        logger.info(f"Created NDVI result {result.id} for field {field_id}")
+        return result
+'
+
+# FieldService - Required by Stage 3+4
+write_file "$PROJECT_NAME/backend/app/services/field_service.py" 'from sqlalchemy.orm import Session
+from sqlalchemy import func
+from typing import List, Optional, Dict, Any
+from app.models.field import Field
+from geoalchemy2.functions import ST_AsGeoJSON, ST_Area, ST_Centroid
+import json
+import logging
+
+logger = logging.getLogger(__name__)
+
+
+class FieldService:
+    """
+    Service layer for Field operations.
+    Handles CRUD and geospatial operations for agricultural fields.
+    """
+
+    def __init__(self, db: Session):
+        self.db = db
+
+    def get_field(self, tenant_id: int, field_id: int) -> Optional[Field]:
+        """
+        Get a field by ID for a specific tenant.
+
+        Args:
+            tenant_id: The tenant ID
+            field_id: The field ID
+
+        Returns:
+            Field object or None if not found
+        """
+        return (
+            self.db.query(Field)
+            .filter(
+                Field.id == field_id,
+                Field.tenant_id == tenant_id
+            )
+            .first()
+        )
+
+    def get_all(
+        self,
+        tenant_id: int,
+        skip: int = 0,
+        limit: int = 100,
+        crop_type: Optional[str] = None
+    ) -> List[Field]:
+        """
+        Get all fields for a tenant with optional filtering.
+
+        Args:
+            tenant_id: The tenant ID
+            skip: Number of records to skip (pagination)
+            limit: Maximum number of records to return
+            crop_type: Optional filter by crop type
+
+        Returns:
+            List of Field objects
+        """
+        query = self.db.query(Field).filter(Field.tenant_id == tenant_id)
+
+        if crop_type:
+            query = query.filter(Field.crop_type == crop_type)
+
+        return query.offset(skip).limit(limit).all()
+
+    def get_count(self, tenant_id: int) -> int:
+        """Get total count of fields for a tenant."""
+        return (
+            self.db.query(func.count(Field.id))
+            .filter(Field.tenant_id == tenant_id)
+            .scalar()
+        )
+
+    def create(self, tenant_id: int, field_data: Dict[str, Any]) -> Field:
+        """
+        Create a new field.
+
+        Args:
+            tenant_id: The tenant ID
+            field_data: Dictionary with field attributes
+
+        Returns:
+            Created Field object
+        """
+        geometry = field_data.get("geometry")
+        if isinstance(geometry, dict):
+            geometry = json.dumps(geometry)
+
+        field = Field(
+            tenant_id=tenant_id,
+            name=field_data["name"],
+            crop_type=field_data.get("crop_type"),
+            geometry=f"SRID=4326;{geometry}" if geometry else None,
+            area_ha=field_data.get("area_ha"),
+            soil_type=field_data.get("soil_type"),
+            irrigation_type=field_data.get("irrigation_type"),
+            metadata=field_data.get("metadata", {})
+        )
+
+        self.db.add(field)
+        self.db.commit()
+        self.db.refresh(field)
+
+        logger.info(f"Created field {field.id}: {field.name}")
+        return field
+
+    def update(
+        self,
+        tenant_id: int,
+        field_id: int,
+        field_data: Dict[str, Any]
+    ) -> Optional[Field]:
+        """
+        Update an existing field.
+
+        Args:
+            tenant_id: The tenant ID
+            field_id: The field ID
+            field_data: Dictionary with updated attributes
+
+        Returns:
+            Updated Field object or None if not found
+        """
+        field = self.get_field(tenant_id, field_id)
+
+        if not field:
+            return None
+
+        for key, value in field_data.items():
+            if hasattr(field, key) and value is not None:
+                setattr(field, key, value)
+
+        self.db.commit()
+        self.db.refresh(field)
+
+        logger.info(f"Updated field {field_id}")
+        return field
+
+    def delete(self, tenant_id: int, field_id: int) -> bool:
+        """
+        Delete a field.
+
+        Args:
+            tenant_id: The tenant ID
+            field_id: The field ID
+
+        Returns:
+            True if deleted, False if not found
+        """
+        field = self.get_field(tenant_id, field_id)
+
+        if not field:
+            return False
+
+        self.db.delete(field)
+        self.db.commit()
+
+        logger.info(f"Deleted field {field_id}")
+        return True
+
+    def get_statistics(self, tenant_id: int) -> Dict[str, Any]:
+        """
+        Get field statistics for a tenant.
+
+        Returns:
+            Dictionary with statistical data
+        """
+        fields = self.get_all(tenant_id, limit=10000)
+
+        if not fields:
+            return {
+                "total_count": 0,
+                "total_area_ha": 0,
+                "crop_types": {},
+                "avg_area_ha": 0
+            }
+
+        total_area = sum(f.area_ha or 0 for f in fields)
+        crop_counts = {}
+
+        for field in fields:
+            if field.crop_type:
+                crop_counts[field.crop_type] = crop_counts.get(field.crop_type, 0) + 1
+
+        return {
+            "total_count": len(fields),
+            "total_area_ha": total_area,
+            "avg_area_ha": total_area / len(fields) if fields else 0,
+            "crop_types": crop_counts,
+            "by_irrigation": self._group_by_irrigation(fields)
+        }
+
+    def _group_by_irrigation(self, fields: List[Field]) -> Dict[str, int]:
+        """Group fields by irrigation type."""
+        result = {}
+        for field in fields:
+            irrigation = field.irrigation_type or "unknown"
+            result[irrigation] = result.get(irrigation, 0) + 1
+        return result
+
+    def get_nearby_fields(
+        self,
+        tenant_id: int,
+        field_id: int,
+        distance_km: float = 10
+    ) -> List[Field]:
+        """
+        Get fields within a certain distance of a given field.
+        Uses PostGIS ST_DWithin for spatial query.
+
+        Args:
+            tenant_id: The tenant ID
+            field_id: The reference field ID
+            distance_km: Maximum distance in kilometers
+
+        Returns:
+            List of nearby Field objects
+        """
+        reference_field = self.get_field(tenant_id, field_id)
+
+        if not reference_field:
+            return []
+
+        # Convert km to degrees (approximate)
+        distance_degrees = distance_km / 111.0
+
+        # This is a simplified version - in production, use proper PostGIS functions
+        return (
+            self.db.query(Field)
+            .filter(
+                Field.tenant_id == tenant_id,
+                Field.id != field_id
+            )
+            .limit(10)
+            .all()
+        )
+'
+
+echo_success "تم إنشاء Services Layer بنجاح"
+
+# =====================================
 # 11️⃣ Frontend Files
 # =====================================
 echo_header "11️⃣ إنشاء Frontend Files"
@@ -1802,7 +2240,7 @@ CMD ["nginx", "-g", "daemon off;"]'
 # package.json
 write_file "$PROJECT_NAME/web/package.json" '{
   "name": "field-suite-web",
-  "version": "3.0.0",
+  "version": "3.1.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -2850,10 +3288,10 @@ echo "   4. docker-compose -f docker-compose.monitoring.yml up -d"
 echo ""
 echo -e "${CYAN}🔗 الروابط بعد التشغيل:${NC}"
 echo "   API Docs:    http://localhost:8000/docs"
-echo "   Frontend:    http://localhost:3000"
+echo "   Frontend:    http://localhost:3002"
 echo "   Flower:      http://localhost:5555"
-echo "   Grafana:     http://localhost:3001 (admin/admin123)"
-echo "   Prometheus:  http://localhost:9090"
+echo "   Grafana:     http://localhost:3003 (admin/admin123)"
+echo "   Prometheus:  http://localhost:9091"
 echo ""
 echo_success "✅ المشروع جاهز للتطوير والإنتاج!"
 

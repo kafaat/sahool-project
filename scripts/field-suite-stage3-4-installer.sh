@@ -983,7 +983,7 @@ services:
     image: prom/prometheus:latest
     container_name: field_suite_prometheus
     ports:
-      - "127.0.0.1:9090:9090"
+      - "127.0.0.1:9091:9090"  # Using 9091 to avoid conflict with main project
     volumes:
       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./monitoring/alerts.yml:/etc/prometheus/alerts.yml:ro
@@ -1001,7 +1001,7 @@ services:
     image: grafana/grafana:latest
     container_name: field_suite_grafana
     ports:
-      - "127.0.0.1:3001:3000"
+      - "127.0.0.1:3003:3000"  # Using 3003 to avoid conflict with main project
     volumes:
       - grafana_data:/var/lib/grafana
       - ./monitoring/grafana-dashboards:/var/lib/grafana/dashboards:ro
@@ -1061,8 +1061,8 @@ echo_info "   - Context Builder with NDVI + Weather integration"
 echo_info "   - Weather Client with OpenWeatherMap API"
 echo ""
 echo_success "📊 Observability Stack جاهز"
-echo_info "   - Prometheus: http://localhost:9090"
-echo_info "   - Grafana: http://localhost:3001 (admin/${GRAFANA_PASSWORD:-admin123})"
+echo_info "   - Prometheus: http://localhost:9091"
+echo_info "   - Grafana: http://localhost:3003 (admin/${GRAFANA_PASSWORD:-admin123})"
 echo_info "   - Loki: http://localhost:3100"
 echo ""
 echo -e "${YELLOW}⚠️ الخطوات التالية:${NC}"
