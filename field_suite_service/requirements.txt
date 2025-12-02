@@ -17,3 +17,6 @@ tenacity==8.2.3
 PyYAML==6.0.1
 geoalchemy2==0.14.7
 python-multipart==0.0.9
+psutil==5.9.8
+PyJWT==2.8.0
+websockets==12.0

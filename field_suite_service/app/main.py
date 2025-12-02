@@ -1,14 +1,21 @@
 """
 سهول اليمن - Field Suite Backend Main Application
 المنصة الزراعية الذكية لليمن - الخدمة الرئيسية
+
+Enhanced with:
+- Circuit Breaker & Retry Logic
+- Redis Caching
+- Rate Limiting & Security
+- WebSocket Real-time Updates
+- Advanced Monitoring
 """
 import os
-import logging
+import asyncio
 from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import Optional
 
-from fastapi import FastAPI, Request, HTTPException, Depends
+from fastapi import FastAPI, Request, HTTPException, Depends, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
@@ -16,25 +23,47 @@ from starlette.responses import Response
 import structlog
 import httpx
 
-# Configure logging
-structlog.configure(
-    processors=[
-        structlog.stdlib.filter_by_level,
-        structlog.stdlib.add_logger_name,
-        structlog.stdlib.add_log_level,
-        structlog.stdlib.PositionalArgumentsFormatter(),
-        structlog.processors.TimeStamper(fmt="iso"),
-        structlog.processors.StackInfoRenderer(),
-        structlog.processors.format_exc_info,
-        structlog.processors.UnicodeDecoder(),
-        structlog.processors.JSONRenderer()
-    ],
-    wrapper_class=structlog.stdlib.BoundLogger,
-    context_class=dict,
-    logger_factory=structlog.stdlib.LoggerFactory(),
+# Import core modules
+from app.core.config import get_settings
+from app.core.resilience import (
+    CircuitBreakerConfig,
+    circuit_registry,
+    with_circuit_breaker,
+    with_retry,
+    RetryConfig,
+    health_aggregator,
+    Bulkhead,
+)
+from app.core.cache import cache_manager, cached, region_cache
+from app.core.security import (
+    SecurityHeadersMiddleware,
+    RateLimitMiddleware,
+    rate_limiter,
+    InputValidator,
+    get_current_user,
+)
+from app.core.websocket import (
+    connection_manager,
+    websocket_endpoint,
+    event_emitter,
+    ws_background_tasks,
+    YemenChannels,
+)
+from app.core.monitoring import (
+    MetricsMiddleware,
+    RequestLoggingMiddleware,
+    health_checker,
+    system_metrics,
+    configure_logging,
+    set_app_info,
 )
 
+# Configure structured logging
+configure_logging(service_name="sahool-yemen", log_level="INFO", json_format=True)
 logger = structlog.get_logger(__name__)
+
+# Settings
+settings = get_settings()
 
 # Prometheus metrics
 REQUEST_COUNT = Counter(
@@ -59,21 +88,58 @@ QUERY_CORE_URL = os.getenv("QUERY_CORE_BASE_URL", "http://query-core:8000")
 # HTTP client
 http_client: Optional[httpx.AsyncClient] = None
 
+# Bulkheads for resource isolation
+weather_bulkhead = Bulkhead("weather", max_concurrent=20)
+imagery_bulkhead = Bulkhead("imagery", max_concurrent=15)
+analytics_bulkhead = Bulkhead("analytics", max_concurrent=25)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan manager"""
     global http_client
 
     # Startup
-    logger.info("Starting Field Suite Backend Service", version="6.0.0")
-    http_client = httpx.AsyncClient(timeout=30.0)
+    logger.info("starting_service", version="6.0.0", service="sahool-yemen")
+
+    # Initialize HTTP client
+    http_client = httpx.AsyncClient(
+        timeout=httpx.Timeout(30.0, connect=10.0),
+        limits=httpx.Limits(max_keepalive_connections=50, max_connections=100)
+    )
+
+    # Initialize cache
+    redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
+    await cache_manager.initialize(redis_url)
+
+    # Start background tasks
+    await ws_background_tasks.start()
+    await system_metrics.start()
+
+    # Register health checks
+    health_checker.register("http_client", lambda: {"healthy": http_client is not None})
+    health_checker.register("cache", lambda: cache_manager.get_stats())
+    health_checker.register("websocket", lambda: connection_manager.get_stats())
+
+    # Set application info for metrics
+    set_app_info(version="6.0.0", service_name="sahool-yemen")
+
+    logger.info("service_started", components=["cache", "websocket", "metrics"])
 
     yield
 
     # Shutdown
-    logger.info("Shutting down Field Suite Backend Service")
+    logger.info("shutting_down_service")
+
+    await ws_background_tasks.stop()
+    await system_metrics.stop()
+    await cache_manager.shutdown()
+
     if http_client:
         await http_client.aclose()
+
+    logger.info("service_stopped")
+
 
 app = FastAPI(
     title="سهول اليمن - Field Suite API",
@@ -86,6 +152,8 @@ app = FastAPI(
     - 💧 توصيات الري الذكية
     - 📊 تحليلات وإحصاءات شاملة
     - 🤖 مستشار زراعي ذكي
+    - 🔄 تحديثات مباشرة عبر WebSocket
+    - 🛡️ حماية أمنية متقدمة
 
     ## المحافظات المدعومة
     جميع المحافظات اليمنية العشرون
@@ -96,7 +164,11 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS middleware
+# Add middleware (order matters - last added is first executed)
+app.add_middleware(MetricsMiddleware, exclude_paths=["/metrics", "/health"])
+app.add_middleware(RequestLoggingMiddleware)
+app.add_middleware(RateLimitMiddleware, limiter=rate_limiter)
+app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -105,118 +177,112 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Request logging middleware
-@app.middleware("http")
-async def log_requests(request: Request, call_next):
-    start_time = datetime.utcnow()
 
-    response = await call_next(request)
+# =============================================================================
+# Health Endpoints
+# =============================================================================
 
-    duration = (datetime.utcnow() - start_time).total_seconds()
-
-    REQUEST_COUNT.labels(
-        method=request.method,
-        endpoint=request.url.path,
-        status=response.status_code
-    ).inc()
-
-    REQUEST_LATENCY.labels(
-        method=request.method,
-        endpoint=request.url.path
-    ).observe(duration)
-
-    logger.info(
-        "request_completed",
-        method=request.method,
-        path=request.url.path,
-        status=response.status_code,
-        duration=duration,
-    )
-
-    return response
-
-# Health endpoints
 @app.get("/health", tags=["Health"])
 async def health_check():
     """Basic health check"""
     return {
         "status": "healthy",
-        "service": "field-suite-backend",
+        "service": "sahool-yemen",
         "version": "6.0.0",
         "timestamp": datetime.utcnow().isoformat(),
     }
 
+
 @app.get("/health/ready", tags=["Health"])
 async def readiness_check():
-    """Readiness check with service dependencies"""
-    services_status = {}
+    """Readiness check with all dependencies"""
+    result = await health_checker.run_all_checks()
+    status_code = 200 if result["status"] == "healthy" else 503
+    return JSONResponse(content=result, status_code=status_code)
 
-    # Check nano services
-    service_urls = {
-        "weather-core": f"{WEATHER_CORE_URL}/health",
-        "imagery-core": f"{IMAGERY_CORE_URL}/health",
-        "geo-core": f"{GEO_CORE_URL}/health",
-        "analytics-core": f"{ANALYTICS_CORE_URL}/health",
-        "query-core": f"{QUERY_CORE_URL}/health",
-        "advisor-core": f"{ADVISOR_CORE_URL}/health",
-    }
-
-    for service_name, url in service_urls.items():
-        try:
-            response = await http_client.get(url, timeout=5.0)
-            services_status[service_name] = "healthy" if response.status_code == 200 else "unhealthy"
-        except Exception as e:
-            services_status[service_name] = f"unavailable: {str(e)}"
-
-    all_healthy = all(status == "healthy" for status in services_status.values())
-
-    return {
-        "status": "ready" if all_healthy else "degraded",
-        "services": services_status,
-        "timestamp": datetime.utcnow().isoformat(),
-    }
 
 @app.get("/health/live", tags=["Health"])
 async def liveness_check():
     """Liveness check"""
-    return {"status": "alive", "timestamp": datetime.utcnow().isoformat()}
+    return await health_checker.liveness_check()
 
-# Metrics endpoint
+
+# =============================================================================
+# Metrics & Monitoring Endpoints
+# =============================================================================
+
 @app.get("/metrics", tags=["Monitoring"])
 async def metrics():
     """Prometheus metrics endpoint"""
     return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
-# Proxy endpoints to nano services
-@app.api_route("/v1/weather/{path:path}", methods=["GET", "POST"], tags=["Weather"])
-async def proxy_weather(request: Request, path: str):
-    """Proxy requests to Weather Core service"""
-    return await _proxy_request(request, WEATHER_CORE_URL, f"/api/v1/weather/{path}")
 
-@app.api_route("/v1/ndvi/{path:path}", methods=["GET", "POST"], tags=["NDVI"])
-async def proxy_ndvi(request: Request, path: str):
-    """Proxy requests to Imagery Core service"""
-    return await _proxy_request(request, IMAGERY_CORE_URL, f"/api/v1/ndvi/{path}")
+@app.get("/v1/status", tags=["Monitoring"])
+async def system_status():
+    """System status with detailed component information"""
+    return {
+        "service": "sahool-yemen",
+        "version": "6.0.0",
+        "timestamp": datetime.utcnow().isoformat(),
+        "components": {
+            "cache": cache_manager.get_stats(),
+            "websocket": connection_manager.get_stats(),
+            "circuit_breakers": circuit_registry.get_all_stats(),
+            "rate_limiter": {"requests_per_second": settings.rate_limit_requests},
+        },
+        "system": system_metrics.get_system_info(),
+    }
 
-@app.api_route("/v1/geo/{path:path}", methods=["GET", "POST"], tags=["Geo"])
-async def proxy_geo(request: Request, path: str):
-    """Proxy requests to Geo Core service"""
-    return await _proxy_request(request, GEO_CORE_URL, f"/api/v1/geo/{path}")
 
-@app.api_route("/v1/analytics/{path:path}", methods=["GET", "POST"], tags=["Analytics"])
-async def proxy_analytics(request: Request, path: str):
-    """Proxy requests to Analytics Core service"""
-    return await _proxy_request(request, ANALYTICS_CORE_URL, f"/api/v1/{path}")
+# =============================================================================
+# WebSocket Endpoint
+# =============================================================================
 
-@app.api_route("/v1/fields/{path:path}", methods=["GET", "POST"], tags=["Fields"])
-async def proxy_fields(request: Request, path: str):
-    """Proxy requests to Query Core service"""
-    return await _proxy_request(request, QUERY_CORE_URL, f"/api/v1/fields/{path}")
+@app.websocket("/ws/{client_id}")
+async def ws_endpoint(websocket: WebSocket, client_id: str):
+    """
+    WebSocket endpoint for real-time updates
 
-@app.api_route("/v1/advisor/{path:path}", methods=["GET", "POST"], tags=["Advisor"])
-async def proxy_advisor(request: Request, path: str):
-    """Proxy requests to Advisor Core service"""
-    return await _proxy_request(request, ADVISOR_CORE_URL, f"/api/v1/advisor/{path}")
+    Channels:
+    - field:{field_id} - Field updates
+    - weather:{region_id} - Weather updates
+    - alerts - System alerts
+    - ndvi - NDVI updates
+    """
+    await websocket_endpoint(websocket, client_id)
+
+
+# =============================================================================
+# Proxy Functions with Circuit Breaker
+# =============================================================================
+
+@with_circuit_breaker("weather-core", CircuitBreakerConfig(failure_threshold=5, timeout=30))
+@with_retry(RetryConfig(max_attempts=3, base_delay=1.0))
+async def call_weather_service(path: str, method: str = "GET", body: bytes = None, headers: dict = None):
+    """Call weather service with circuit breaker and retry"""
+    async with weather_bulkhead:
+        url = f"{WEATHER_CORE_URL}{path}"
+        if method == "GET":
+            response = await http_client.get(url, headers=headers)
+        else:
+            response = await http_client.post(url, content=body, headers=headers)
+        response.raise_for_status()
+        return response.json()
+
+
+@with_circuit_breaker("imagery-core", CircuitBreakerConfig(failure_threshold=5, timeout=30))
+@with_retry(RetryConfig(max_attempts=3, base_delay=1.0))
+async def call_imagery_service(path: str, method: str = "GET", body: bytes = None, headers: dict = None):
+    """Call imagery service with circuit breaker and retry"""
+    async with imagery_bulkhead:
+        url = f"{IMAGERY_CORE_URL}{path}"
+        if method == "GET":
+            response = await http_client.get(url, headers=headers)
+        else:
+            response = await http_client.post(url, content=body, headers=headers)
+        response.raise_for_status()
+        return response.json()
+
 
 async def _proxy_request(request: Request, base_url: str, path: str):
     """Helper function to proxy requests to nano services"""
@@ -249,8 +315,53 @@ async def _proxy_request(request: Request, base_url: str, path: str):
         logger.error("proxy_error", error=str(e), url=url)
         raise HTTPException(status_code=500, detail=str(e))
 
-# Direct endpoints
+
+# =============================================================================
+# Proxy Endpoints to Nano Services
+# =============================================================================
+
+@app.api_route("/v1/weather/{path:path}", methods=["GET", "POST"], tags=["Weather"])
+async def proxy_weather(request: Request, path: str):
+    """Proxy requests to Weather Core service"""
+    return await _proxy_request(request, WEATHER_CORE_URL, f"/api/v1/weather/{path}")
+
+
+@app.api_route("/v1/ndvi/{path:path}", methods=["GET", "POST"], tags=["NDVI"])
+async def proxy_ndvi(request: Request, path: str):
+    """Proxy requests to Imagery Core service"""
+    return await _proxy_request(request, IMAGERY_CORE_URL, f"/api/v1/ndvi/{path}")
+
+
+@app.api_route("/v1/geo/{path:path}", methods=["GET", "POST"], tags=["Geo"])
+async def proxy_geo(request: Request, path: str):
+    """Proxy requests to Geo Core service"""
+    return await _proxy_request(request, GEO_CORE_URL, f"/api/v1/geo/{path}")
+
+
+@app.api_route("/v1/analytics/{path:path}", methods=["GET", "POST"], tags=["Analytics"])
+async def proxy_analytics(request: Request, path: str):
+    """Proxy requests to Analytics Core service"""
+    return await _proxy_request(request, ANALYTICS_CORE_URL, f"/api/v1/{path}")
+
+
+@app.api_route("/v1/fields/{path:path}", methods=["GET", "POST"], tags=["Fields"])
+async def proxy_fields(request: Request, path: str):
+    """Proxy requests to Query Core service"""
+    return await _proxy_request(request, QUERY_CORE_URL, f"/api/v1/fields/{path}")
+
+
+@app.api_route("/v1/advisor/{path:path}", methods=["GET", "POST"], tags=["Advisor"])
+async def proxy_advisor(request: Request, path: str):
+    """Proxy requests to Advisor Core service"""
+    return await _proxy_request(request, ADVISOR_CORE_URL, f"/api/v1/advisor/{path}")
+
+
+# =============================================================================
+# Direct Endpoints (with Caching)
+# =============================================================================
+
 @app.get("/v1/regions", tags=["Regions"])
+@cached(ttl=86400, key_prefix="regions")  # Cache for 24 hours
 async def list_regions():
     """قائمة المحافظات اليمنية"""
     regions = [
@@ -277,24 +388,28 @@ async def list_regions():
     ]
     return {"regions": regions, "count": len(regions)}
 
+
 @app.get("/v1/crops", tags=["Crops"])
+@cached(ttl=86400, key_prefix="crops")  # Cache for 24 hours
 async def list_crops():
     """قائمة المحاصيل الزراعية"""
     crops = [
-        {"name_ar": "قمح", "name_en": "Wheat", "season": "شتاء"},
-        {"name_ar": "ذرة", "name_en": "Corn", "season": "صيف"},
-        {"name_ar": "شعير", "name_en": "Barley", "season": "شتاء"},
-        {"name_ar": "بن", "name_en": "Coffee", "season": "على مدار السنة"},
-        {"name_ar": "طماطم", "name_en": "Tomato", "season": "ربيع/خريف"},
-        {"name_ar": "بصل", "name_en": "Onion", "season": "خريف"},
-        {"name_ar": "بطاطس", "name_en": "Potato", "season": "ربيع"},
-        {"name_ar": "خضروات", "name_en": "Vegetables", "season": "متعدد"},
-        {"name_ar": "فواكه", "name_en": "Fruits", "season": "متعدد"},
-        {"name_ar": "أعلاف", "name_en": "Fodder", "season": "على مدار السنة"},
+        {"id": 1, "name_ar": "قمح", "name_en": "Wheat", "season": "شتاء", "ndvi_range": [0.3, 0.7]},
+        {"id": 2, "name_ar": "ذرة", "name_en": "Corn", "season": "صيف", "ndvi_range": [0.4, 0.8]},
+        {"id": 3, "name_ar": "شعير", "name_en": "Barley", "season": "شتاء", "ndvi_range": [0.3, 0.65]},
+        {"id": 4, "name_ar": "بن", "name_en": "Coffee", "season": "على مدار السنة", "ndvi_range": [0.5, 0.85]},
+        {"id": 5, "name_ar": "طماطم", "name_en": "Tomato", "season": "ربيع/خريف", "ndvi_range": [0.35, 0.75]},
+        {"id": 6, "name_ar": "بصل", "name_en": "Onion", "season": "خريف", "ndvi_range": [0.25, 0.6]},
+        {"id": 7, "name_ar": "بطاطس", "name_en": "Potato", "season": "ربيع", "ndvi_range": [0.3, 0.7]},
+        {"id": 8, "name_ar": "خضروات", "name_en": "Vegetables", "season": "متعدد", "ndvi_range": [0.3, 0.75]},
+        {"id": 9, "name_ar": "فواكه", "name_en": "Fruits", "season": "متعدد", "ndvi_range": [0.4, 0.8]},
+        {"id": 10, "name_ar": "أعلاف", "name_en": "Fodder", "season": "على مدار السنة", "ndvi_range": [0.35, 0.7]},
     ]
     return {"crops": crops, "count": len(crops)}
 
+
 @app.get("/v1/dashboard", tags=["Dashboard"])
+@cached(ttl=300, key_prefix="dashboard")  # Cache for 5 minutes
 async def get_dashboard():
     """بيانات لوحة التحكم الرئيسية"""
     import random
@@ -324,7 +439,35 @@ async def get_dashboard():
         "last_updated": datetime.utcnow().isoformat(),
     }
 
-# Error handlers
+
+# =============================================================================
+# Real-time Broadcast Endpoints (for testing)
+# =============================================================================
+
+@app.post("/v1/broadcast/alert", tags=["Real-time"])
+async def broadcast_alert(alert: dict):
+    """Broadcast an alert to all connected clients"""
+    await event_emitter.emit_system_alert(alert)
+    return {"status": "sent", "connections": connection_manager.get_stats()["active_connections"]}
+
+
+@app.post("/v1/broadcast/weather/{region_id}", tags=["Real-time"])
+async def broadcast_weather(region_id: int, weather: dict):
+    """Broadcast weather update to region subscribers"""
+    # Validate region ID
+    valid, msg = InputValidator.validate_region_id(region_id)
+    if not valid:
+        raise HTTPException(status_code=400, detail=msg)
+
+    await event_emitter.emit_weather_update(region_id, weather)
+    subscribers = connection_manager.get_channel_subscribers(YemenChannels.weather(region_id))
+    return {"status": "sent", "subscribers": len(subscribers)}
+
+
+# =============================================================================
+# Error Handlers
+# =============================================================================
+
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
     return JSONResponse(
@@ -337,6 +480,7 @@ async def http_exception_handler(request: Request, exc: HTTPException):
         },
     )
 
+
 @app.exception_handler(Exception)
 async def general_exception_handler(request: Request, exc: Exception):
     logger.error("unhandled_exception", error=str(exc), path=request.url.path)
@@ -344,10 +488,12 @@ async def general_exception_handler(request: Request, exc: Exception):
         status_code=500,
         content={
             "error": "Internal server error",
+            "error_ar": "خطأ داخلي في الخادم",
             "status_code": 500,
             "timestamp": datetime.utcnow().isoformat(),
         },
     )
+
 
 if __name__ == "__main__":
     import uvicorn
