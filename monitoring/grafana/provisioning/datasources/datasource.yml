@@ -1,0 +1,26 @@
+# سهول اليمن - Grafana Datasources
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: true
+    jsonData:
+      timeInterval: "15s"
+      httpMethod: "POST"
+
+  # PostgreSQL datasource (optional)
+  # - name: PostgreSQL
+  #   type: postgres
+  #   url: fs-postgres:5432
+  #   database: sahool_yemen_db
+  #   user: sahool_production_user
+  #   secureJsonData:
+  #     password: ${DB_PASS}
+  #   jsonData:
+  #     sslmode: disable
+  #     maxOpenConns: 10
+  #     maxIdleConns: 5
