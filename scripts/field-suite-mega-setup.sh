@@ -757,8 +757,9 @@ touch "$PROJECT_NAME/backend/app/repositories/__init__.py"
 touch "$PROJECT_NAME/backend/app/middleware/__init__.py"
 touch "$PROJECT_NAME/backend/app/utils/__init__.py"
 
-# main.py - Fixed with all routers
-write_file "$PROJECT_NAME/backend/app/main.py" 'from fastapi import FastAPI, Request
+# main.py - Fixed with all routers and modern lifespan
+write_file "$PROJECT_NAME/backend/app/main.py" 'from contextlib import asynccontextmanager
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -780,13 +781,27 @@ logger = logging.getLogger(__name__)
 # Rate limiter
 limiter = Limiter(key_func=get_remote_address)
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan handler (startup and shutdown)"""
+    # Startup
+    logger.info("Field Suite API starting up...")
+    logger.info(f"Environment: {settings.ENV}")
+    logger.info(f"Debug mode: {settings.DEBUG}")
+    yield
+    # Shutdown
+    logger.info("Field Suite API shutting down...")
+
+
 app = FastAPI(
     title="Field Suite API",
     description="Agricultural Field Management and NDVI Analysis Platform",
     version="3.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
-    openapi_url="/openapi.json"
+    openapi_url="/openapi.json",
+    lifespan=lifespan
 )
 
 app.state.limiter = limiter
@@ -809,6 +824,7 @@ app.include_router(advisor.router, prefix="/api/v1", tags=["Field Advisor"])
 app.include_router(satellite.router, prefix="/api/v1", tags=["Satellite"])
 app.include_router(weather.router, prefix="/api/v1", tags=["Weather"])
 
+
 @app.get("/health")
 async def health_check():
     """Health check endpoint"""
@@ -818,10 +834,12 @@ async def health_check():
         "version": "3.0.0"
     }
 
+
 @app.get("/health/live")
 async def liveness():
     """Kubernetes liveness probe"""
     return {"status": "alive"}
+
 
 @app.get("/health/ready")
 async def readiness():
@@ -829,11 +847,13 @@ async def readiness():
     # Add database/redis connectivity checks here
     return {"status": "ready"}
 
+
 @app.get("/metrics")
 async def metrics():
     """Prometheus metrics endpoint"""
     from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
     return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
+
 
 @app.middleware("http")
 async def add_process_time_header(request: Request, call_next):
@@ -843,19 +863,7 @@ async def add_process_time_header(request: Request, call_next):
     process_time = time.time() - start_time
     response.headers["X-Process-Time"] = f"{process_time:.4f}s"
     response.headers["X-Request-ID"] = request.headers.get("X-Request-ID", "")
-    return response
-
-@app.on_event("startup")
-async def startup_event():
-    """Application startup tasks"""
-    logger.info("Field Suite API starting up...")
-    logger.info(f"Environment: {settings.ENV}")
-    logger.info(f"Debug mode: {settings.DEBUG}")
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    """Application shutdown tasks"""
-    logger.info("Field Suite API shutting down...")'
+    return response'
 
 # core/config.py - Fixed with pydantic_settings
 write_file "$PROJECT_NAME/backend/app/core/config.py" 'from pydantic_settings import BaseSettings
@@ -1010,9 +1018,14 @@ async def require_admin(user: TokenData = Depends(get_current_user)) -> TokenDat
 
 # core/database.py
 write_file "$PROJECT_NAME/backend/app/core/database.py" 'from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import sessionmaker, DeclarativeBase
 from app.core.config import settings
+
+
+class Base(DeclarativeBase):
+    """Base class for SQLAlchemy models (SQLAlchemy 2.0 style)"""
+    pass
+
 
 engine = create_engine(
     settings.DATABASE_URL,
@@ -1023,7 +1036,7 @@ engine = create_engine(
 )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base = declarative_base()
+
 
 def get_db():
     """Database session dependency"""
@@ -1724,6 +1737,7 @@ class Field(Base):
     ndvi_results = relationship("NDVIResult", back_populates="field", cascade="all, delete-orphan")'
 
 write_file "$PROJECT_NAME/backend/app/models/ndvi.py" 'from sqlalchemy import Column, Integer, ForeignKey, Date, Float, TIMESTAMP, String, JSON
+from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from app.core.database import Base
 
