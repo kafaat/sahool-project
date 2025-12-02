@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- John Deere Inspired Color Palette -->
+    <color name="primary_green">#367C2B</color>
+    <color name="primary_green_dark">#2D6A24</color>
+    <color name="primary_green_light">#4A9B3D</color>
+
+    <color name="accent_yellow">#FFDE00</color>
+    <color name="accent_yellow_dark">#E6C800</color>
+
+    <!-- Agricultural Earth Tones -->
+    <color name="earth_brown">#8B5E34</color>
+    <color name="crop_green">#7CB342</color>
+    <color name="sky_blue">#4FC3F7</color>
+
+    <!-- Status Colors -->
+    <color name="success">#43A047</color>
+    <color name="danger">#E53935</color>
+    <color name="warning">#FB8C00</color>
+    <color name="info">#1E88E5</color>
+
+    <!-- Neutral -->
+    <color name="background_light">#F5F7F5</color>
+    <color name="surface_light">#FFFFFF</color>
+    <color name="text_primary">#1B2E1B</color>
+    <color name="text_secondary">#4A5D4A</color>
+
+    <!-- Dark Mode -->
+    <color name="background_dark">#1B2E1B</color>
+    <color name="surface_dark">#243524</color>
+    <color name="text_primary_dark">#E8EDE8</color>
+</resources>

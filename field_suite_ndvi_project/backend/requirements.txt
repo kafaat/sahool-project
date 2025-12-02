@@ -1,0 +1,13 @@
+fastapi
+uvicorn
+pydantic
+sqlalchemy
+psycopg2-binary
+shapely
+python-multipart
+rasterio
+numpy
+geojson
+scikit-image
+requests
+matplotlib
