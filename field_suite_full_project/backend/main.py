@@ -1,12 +1,138 @@
-from fastapi import FastAPI, HTTPException, status, Request
+"""
+Field Suite Backend - Agricultural Field Management API
+With AG-UI protocol support, security enhancements, and comprehensive logging
+"""
+import os
+import logging
+from functools import lru_cache
+from collections import defaultdict
+from time import time
+
+from fastapi import FastAPI, HTTPException, status, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, JSONResponse
 from pydantic import BaseModel, Field, field_validator
+from pydantic_settings import BaseSettings
 from typing import List, Optional, Literal, AsyncGenerator
 from uuid import uuid4
 from datetime import datetime
 import json
 import asyncio
+
+# ============================================================================
+# Configuration
+# ============================================================================
+
+class Settings(BaseSettings):
+    """Application settings loaded from environment variables"""
+    app_name: str = "Field Suite Backend"
+    app_version: str = "2.1.0"
+    debug: bool = False
+
+    # CORS Settings
+    cors_origins: str = "http://localhost:3000,http://localhost:5173,http://localhost:8080"
+    cors_allow_credentials: bool = True
+
+    # Rate Limiting
+    rate_limit_requests: int = 100
+    rate_limit_window: int = 60  # seconds
+
+    # Logging
+    log_level: str = "INFO"
+
+    model_config = {
+        "env_file": ".env",
+        "env_file_encoding": "utf-8"
+    }
+
+
+@lru_cache()
+def get_settings() -> Settings:
+    return Settings()
+
+
+# ============================================================================
+# Logging Configuration
+# ============================================================================
+
+def setup_logging(settings: Settings):
+    """Configure application logging"""
+    log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    logging.basicConfig(
+        level=getattr(logging, settings.log_level.upper()),
+        format=log_format,
+        handlers=[
+            logging.StreamHandler(),
+        ]
+    )
+    return logging.getLogger("field_suite")
+
+settings = get_settings()
+logger = setup_logging(settings)
+
+
+# ============================================================================
+# Rate Limiting
+# ============================================================================
+
+class RateLimiter:
+    """Simple in-memory rate limiter"""
+    def __init__(self, requests: int = 100, window: int = 60):
+        self.requests = requests
+        self.window = window
+        self.clients: dict = defaultdict(list)
+
+    def is_allowed(self, client_id: str) -> bool:
+        """Check if client is within rate limit"""
+        now = time()
+        client_requests = self.clients[client_id]
+
+        # Remove old requests outside the window
+        self.clients[client_id] = [
+            req_time for req_time in client_requests
+            if now - req_time < self.window
+        ]
+
+        if len(self.clients[client_id]) >= self.requests:
+            return False
+
+        self.clients[client_id].append(now)
+        return True
+
+    def get_remaining(self, client_id: str) -> int:
+        """Get remaining requests for client"""
+        now = time()
+        client_requests = [
+            req_time for req_time in self.clients[client_id]
+            if now - req_time < self.window
+        ]
+        return max(0, self.requests - len(client_requests))
+
+
+rate_limiter = RateLimiter(
+    requests=settings.rate_limit_requests,
+    window=settings.rate_limit_window
+)
+
+
+async def check_rate_limit(request: Request):
+    """Dependency to check rate limit"""
+    client_ip = request.client.host if request.client else "unknown"
+
+    if not rate_limiter.is_allowed(client_ip):
+        logger.warning(f"Rate limit exceeded for client: {client_ip}")
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Rate limit exceeded. Please try again later.",
+            headers={"Retry-After": str(settings.rate_limit_window)}
+        )
+
+    return client_ip
+
+
+# ============================================================================
+# Data Models
+# ============================================================================
 
 GeometryType = Literal['Polygon', 'Rectangle', 'Circle', 'Pivot']
 SourceType = Literal['manual', 'auto_ndvi', 'auto_ai', 'import_gis']
@@ -88,6 +214,17 @@ class FieldListResponse(BaseModel):
 
 class ErrorResponse(BaseModel):
     detail: str
+    timestamp: str = Field(default_factory=lambda: datetime.utcnow().isoformat() + "Z")
+    request_id: Optional[str] = None
+
+
+class HealthResponse(BaseModel):
+    status: str
+    service: str
+    version: str
+    protocol: str
+    capabilities: List[str]
+    uptime_seconds: float
 
 
 # AG-UI Event Models
@@ -107,27 +244,70 @@ class AGUIRequest(BaseModel):
     threadId: Optional[str] = None
 
 
+# ============================================================================
+# Application Initialization
+# ============================================================================
+
+# Track application start time
+APP_START_TIME = time()
+
 # Initialize FastAPI app
 app = FastAPI(
-    title="Field Suite Backend",
+    title=settings.app_name,
     description="API for managing agricultural field boundaries with AG-UI protocol support",
-    version="2.0.0",
+    version=settings.app_version,
     docs_url="/docs",
     redoc_url="/redoc",
 )
 
-# Configure CORS
+# Configure CORS with secure settings
+cors_origins = [origin.strip() for origin in settings.cors_origins.split(",")]
+logger.info(f"Configuring CORS for origins: {cors_origins}")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=cors_origins,
+    allow_credentials=settings.cors_allow_credentials,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization", "X-Request-ID"],
 )
 
-# In-memory database
+
+# ============================================================================
+# Middleware
+# ============================================================================
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    """Log all incoming requests"""
+    request_id = request.headers.get("X-Request-ID", str(uuid4())[:8])
+    client_ip = request.client.host if request.client else "unknown"
+
+    logger.info(f"[{request_id}] {request.method} {request.url.path} - Client: {client_ip}")
+
+    start_time = time()
+    response = await call_next(request)
+    process_time = time() - start_time
+
+    logger.info(f"[{request_id}] Completed in {process_time:.3f}s - Status: {response.status_code}")
+
+    response.headers["X-Request-ID"] = request_id
+    response.headers["X-Process-Time"] = str(process_time)
+    response.headers["X-RateLimit-Remaining"] = str(rate_limiter.get_remaining(client_ip))
+
+    return response
+
+
+# ============================================================================
+# In-memory Database
+# ============================================================================
+
 FIELDS_DB: dict[str, FieldBoundary] = {}
 
+
+# ============================================================================
+# Utility Functions
+# ============================================================================
 
 def get_timestamp() -> str:
     return datetime.utcnow().isoformat() + "Z"
@@ -155,6 +335,8 @@ async def stream_agui_response(
     tool_calls: Optional[List[dict]] = None
 ) -> AsyncGenerator[str, None]:
     """Stream AG-UI compatible events"""
+
+    logger.debug(f"Starting AG-UI stream for run: {run_id}")
 
     # RUN_STARTED
     yield create_agui_event("RUN_STARTED", run_id)
@@ -195,22 +377,44 @@ async def stream_agui_response(
 
     # RUN_FINISHED
     yield create_agui_event("RUN_FINISHED", run_id)
+    logger.debug(f"Completed AG-UI stream for run: {run_id}")
 
 
-@app.get("/", tags=["Health"])
+# ============================================================================
+# Health & Status Endpoints
+# ============================================================================
+
+@app.get("/", tags=["Health"], response_model=HealthResponse)
 def health_check():
     """Health check endpoint"""
-    return {
-        "status": "healthy",
-        "service": "Field Suite Backend",
-        "version": "2.0.0",
-        "protocol": "AG-UI",
-        "capabilities": ["streaming", "tool_calls", "state_sync"]
-    }
+    logger.debug("Health check requested")
+    return HealthResponse(
+        status="healthy",
+        service=settings.app_name,
+        version=settings.app_version,
+        protocol="AG-UI",
+        capabilities=["streaming", "tool_calls", "state_sync", "rate_limiting"],
+        uptime_seconds=round(time() - APP_START_TIME, 2)
+    )
 
 
-# AG-UI Compatible Endpoint
-@app.post("/api/copilotkit", tags=["AG-UI"])
+@app.get("/health/ready", tags=["Health"])
+def readiness_check():
+    """Kubernetes readiness probe"""
+    return {"status": "ready", "timestamp": get_timestamp()}
+
+
+@app.get("/health/live", tags=["Health"])
+def liveness_check():
+    """Kubernetes liveness probe"""
+    return {"status": "alive", "timestamp": get_timestamp()}
+
+
+# ============================================================================
+# AG-UI Endpoints
+# ============================================================================
+
+@app.post("/api/copilotkit", tags=["AG-UI"], dependencies=[Depends(check_rate_limit)])
 async def copilotkit_handler(request: Request):
     """AG-UI compatible streaming endpoint for CopilotKit"""
     body = await request.json()
@@ -219,6 +423,8 @@ async def copilotkit_handler(request: Request):
 
     run_id = str(uuid4())
     message_id = str(uuid4())
+
+    logger.info(f"AG-UI request - Thread: {thread_id}, Run: {run_id}")
 
     # Parse the last user message
     user_message = ""
@@ -274,7 +480,6 @@ async def copilotkit_handler(request: Request):
     )
 
 
-# AG-UI State Endpoint
 @app.get("/api/copilotkit/state", tags=["AG-UI"])
 async def get_agui_state():
     """Get current application state for AG-UI synchronization"""
@@ -285,26 +490,36 @@ async def get_agui_state():
     }
 
 
-@app.get("/fields/", response_model=FieldListResponse, tags=["Fields"])
+# ============================================================================
+# Field CRUD Endpoints
+# ============================================================================
+
+@app.get("/fields/", response_model=FieldListResponse, tags=["Fields"],
+         dependencies=[Depends(check_rate_limit)])
 def list_fields():
     """List all field boundaries"""
     fields = list(FIELDS_DB.values())
+    logger.info(f"Listed {len(fields)} fields")
     return FieldListResponse(fields=fields, count=len(fields))
 
 
 @app.get("/fields/{field_id}", response_model=FieldBoundary, tags=["Fields"],
-         responses={404: {"model": ErrorResponse}})
+         responses={404: {"model": ErrorResponse}},
+         dependencies=[Depends(check_rate_limit)])
 def get_field(field_id: str):
     """Get a specific field by ID"""
     if field_id not in FIELDS_DB:
+        logger.warning(f"Field not found: {field_id}")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Field with ID '{field_id}' not found"
         )
+    logger.info(f"Retrieved field: {field_id}")
     return FIELDS_DB[field_id]
 
 
-@app.post("/fields/", response_model=FieldBoundary, status_code=status.HTTP_201_CREATED, tags=["Fields"])
+@app.post("/fields/", response_model=FieldBoundary, status_code=status.HTTP_201_CREATED,
+          tags=["Fields"], dependencies=[Depends(check_rate_limit)])
 def create_field(field: FieldBoundary):
     """Create a new field boundary"""
     field_id = field.id or str(uuid4())
@@ -316,14 +531,17 @@ def create_field(field: FieldBoundary):
     field.metadata.updatedAt = get_timestamp()
 
     FIELDS_DB[field_id] = field
+    logger.info(f"Created field: {field_id} - {field.name}")
     return field
 
 
 @app.put("/fields/{field_id}", response_model=FieldBoundary, tags=["Fields"],
-         responses={404: {"model": ErrorResponse}})
+         responses={404: {"model": ErrorResponse}},
+         dependencies=[Depends(check_rate_limit)])
 def update_field(field_id: str, field: FieldBoundary):
     """Update an existing field boundary"""
     if field_id not in FIELDS_DB:
+        logger.warning(f"Update failed - Field not found: {field_id}")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Field with ID '{field_id}' not found"
@@ -338,24 +556,35 @@ def update_field(field_id: str, field: FieldBoundary):
     field.metadata.updatedAt = get_timestamp()
 
     FIELDS_DB[field_id] = field
+    logger.info(f"Updated field: {field_id}")
     return field
 
 
 @app.delete("/fields/{field_id}", status_code=status.HTTP_204_NO_CONTENT, tags=["Fields"],
-            responses={404: {"model": ErrorResponse}})
+            responses={404: {"model": ErrorResponse}},
+            dependencies=[Depends(check_rate_limit)])
 def delete_field(field_id: str):
     """Delete a field boundary"""
     if field_id not in FIELDS_DB:
+        logger.warning(f"Delete failed - Field not found: {field_id}")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Field with ID '{field_id}' not found"
         )
     del FIELDS_DB[field_id]
+    logger.info(f"Deleted field: {field_id}")
 
 
-@app.post("/fields/auto-detect", response_model=AutoDetectResponse, tags=["Detection"])
+# ============================================================================
+# Detection & Processing Endpoints
+# ============================================================================
+
+@app.post("/fields/auto-detect", response_model=AutoDetectResponse, tags=["Detection"],
+          dependencies=[Depends(check_rate_limit)])
 def auto_detect(req: AutoDetectRequest):
     """Auto-detect field boundaries using NDVI/AI (mock implementation)"""
+    logger.info(f"Auto-detect requested - Mock: {req.mock}")
+
     timestamp = get_timestamp()
     demo_field = FieldBoundary(
         id=str(uuid4()),
@@ -376,12 +605,16 @@ def auto_detect(req: AutoDetectRequest):
         ),
     )
     FIELDS_DB[demo_field.id] = demo_field
+    logger.info(f"Auto-detected field created: {demo_field.id}")
     return AutoDetectResponse(fields=[demo_field], count=1)
 
 
-@app.post("/fields/zones", response_model=ZonesResponse, tags=["Zones"])
+@app.post("/fields/zones", response_model=ZonesResponse, tags=["Zones"],
+          dependencies=[Depends(check_rate_limit)])
 def split_into_zones(req: ZonesRequest):
     """Split a field into management zones"""
+    logger.info(f"Zone split requested - Field: {req.field.name}, Zones: {req.zones}")
+
     timestamp = get_timestamp()
     zones = []
     for i in range(req.zones):
@@ -403,9 +636,59 @@ def split_into_zones(req: ZonesRequest):
                 metadata=zone_metadata,
             )
         )
+
+    logger.info(f"Created {len(zones)} zones from field: {req.field.name}")
     return ZonesResponse(fields=zones, count=len(zones))
 
 
+# ============================================================================
+# Exception Handlers
+# ============================================================================
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    """Custom HTTP exception handler with logging"""
+    logger.error(f"HTTP {exc.status_code}: {exc.detail} - Path: {request.url.path}")
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "detail": exc.detail,
+            "timestamp": get_timestamp(),
+            "path": str(request.url.path)
+        },
+        headers=exc.headers
+    )
+
+
+@app.exception_handler(Exception)
+async def general_exception_handler(request: Request, exc: Exception):
+    """General exception handler"""
+    logger.exception(f"Unhandled exception: {exc}")
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={
+            "detail": "Internal server error",
+            "timestamp": get_timestamp(),
+            "path": str(request.url.path)
+        }
+    )
+
+
+# ============================================================================
+# Application Entry Point
+# ============================================================================
+
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+
+    logger.info(f"Starting {settings.app_name} v{settings.app_version}")
+    logger.info(f"Debug mode: {settings.debug}")
+    logger.info(f"CORS origins: {cors_origins}")
+
+    uvicorn.run(
+        "main:app",
+        host="0.0.0.0",
+        port=8000,
+        reload=settings.debug,
+        log_level=settings.log_level.lower()
+    )
