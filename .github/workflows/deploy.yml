@@ -101,7 +101,7 @@ jobs:
 
     strategy:
       matrix:
-        service: [gateway, ndvi, weather, advisor, query]
+        service: [weather-core, geo-core, analytics-core, advisor-core, imagery-core, query-core]
 
     steps:
       - name: Checkout code
@@ -130,8 +130,8 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
-          context: ./services/${{ matrix.service }}
-          file: ./services/Dockerfile.service
+          context: ./nano_services/${{ matrix.service }}
+          file: ./nano_services/${{ matrix.service }}/Dockerfile
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
