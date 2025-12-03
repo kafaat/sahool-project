@@ -10,6 +10,7 @@ import clsx from 'clsx'
 interface SkeletonProps {
   className?: string
   animate?: boolean
+  style?: React.CSSProperties
 }
 
 /**
@@ -18,6 +19,7 @@ interface SkeletonProps {
 export const Skeleton: React.FC<SkeletonProps> = ({
   className = '',
   animate = true,
+  style,
 }) => {
   return (
     <div
@@ -26,6 +28,7 @@ export const Skeleton: React.FC<SkeletonProps> = ({
         animate && 'animate-pulse',
         className
       )}
+      style={style}
     />
   )
 }
