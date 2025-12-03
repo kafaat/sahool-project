@@ -45,11 +45,13 @@ CREATE TABLE ndvi_results (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     field_id UUID REFERENCES fields(id),
     tenant_id UUID NOT NULL,
-    ndvi_value DECIMAL(5,2),
+    ndvi_value DECIMAL(5,3) CHECK (ndvi_value BETWEEN -1 AND 1),
     acquisition_date DATE NOT NULL,
     tile_url TEXT,
-    cloud_coverage DECIMAL(5,2),
-    satellite_name VARCHAR(50),
+    tile_metadata JSONB DEFAULT '{}',
+    cloud_coverage DECIMAL(5,2) CHECK (cloud_coverage BETWEEN 0 AND 100),
+    satellite_name VARCHAR(50) DEFAULT 'Sentinel-2',
+    processing_version VARCHAR(20),
     created_at TIMESTAMP DEFAULT NOW()
 );
 
@@ -119,10 +121,11 @@ CREATE TABLE plant_health (
     field_id UUID REFERENCES fields(id),
     tenant_id UUID NOT NULL,
     disease_name VARCHAR(100),
-    confidence_score DECIMAL(5,2),
-    severity_level VARCHAR(20),
+    confidence_score DECIMAL(5,2) CHECK (confidence_score BETWEEN 0 AND 100),
+    severity_level VARCHAR(20) CHECK (severity_level IN ('low', 'medium', 'high', 'critical')),
     recommendation TEXT,
     image_url TEXT,
+    metadata JSONB DEFAULT '{}',
     detected_at TIMESTAMP DEFAULT NOW(),
     created_at TIMESTAMP DEFAULT NOW()
 );
