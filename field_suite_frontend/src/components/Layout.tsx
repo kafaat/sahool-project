@@ -1,5 +1,6 @@
-import { Outlet, NavLink } from 'react-router-dom'
+import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useState } from 'react'
+import { useAuthStore } from '../store/authStore'
 
 const navigation = [
   { name: 'لوحة التحكم', href: '/', icon: '📊' },
@@ -7,10 +8,19 @@ const navigation = [
   { name: 'الطقس', href: '/weather', icon: '🌤️' },
   { name: 'المستشار الزراعي', href: '/advisor', icon: '🤖' },
   { name: 'المحافظات', href: '/regions', icon: '🗺️' },
+  { name: 'الإعدادات', href: '/settings', icon: '⚙️' },
 ]
 
 export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [userMenuOpen, setUserMenuOpen] = useState(false)
+  const { user, logout } = useAuthStore()
+  const navigate = useNavigate()
+
+  const handleLogout = () => {
+    logout()
+    navigate('/login')
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -85,17 +95,42 @@ export default function Layout() {
               <p className="text-sm text-gray-500">نظام إدارة الحقول الزراعية</p>
             </div>
             <div className="flex items-center gap-4">
-              <button className="p-2 hover:bg-gray-100 rounded-full">
+              <button className="p-2 hover:bg-gray-100 rounded-full relative">
                 🔔
+                <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></span>
               </button>
-              <button className="p-2 hover:bg-gray-100 rounded-full">
-                ⚙️
-              </button>
-              <div className="flex items-center gap-2 bg-emerald-50 px-3 py-2 rounded-lg">
-                <span className="w-8 h-8 bg-emerald-600 text-white rounded-full flex items-center justify-center text-sm">
-                  م
-                </span>
-                <span className="text-sm font-medium text-emerald-700">مدير النظام</span>
+              <div className="relative">
+                <button
+                  onClick={() => setUserMenuOpen(!userMenuOpen)}
+                  className="flex items-center gap-2 bg-emerald-50 px-3 py-2 rounded-lg hover:bg-emerald-100 transition-colors"
+                >
+                  <span className="w-8 h-8 bg-emerald-600 text-white rounded-full flex items-center justify-center text-sm">
+                    {user?.name?.charAt(0) || 'م'}
+                  </span>
+                  <span className="text-sm font-medium text-emerald-700">
+                    {user?.name || 'المستخدم'}
+                  </span>
+                </button>
+
+                {/* User dropdown menu */}
+                {userMenuOpen && (
+                  <div className="absolute left-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
+                    <NavLink
+                      to="/settings"
+                      className="block px-4 py-2 text-gray-700 hover:bg-gray-100"
+                      onClick={() => setUserMenuOpen(false)}
+                    >
+                      الإعدادات
+                    </NavLink>
+                    <hr className="my-2" />
+                    <button
+                      onClick={handleLogout}
+                      className="block w-full text-right px-4 py-2 text-red-600 hover:bg-red-50"
+                    >
+                      تسجيل الخروج
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           </div>
