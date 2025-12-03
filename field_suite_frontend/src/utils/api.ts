@@ -190,7 +190,9 @@ export async function apiRequest<T>(
   options: ApiOptions = {}
 ): Promise<T> {
   const retryConfig = { ...DEFAULT_RETRY_CONFIG, ...options.retry }
-  const cacheConfig = { ...DEFAULT_CACHE_CONFIG, ...options.cache }
+  // Cache config reserved for future use
+  const _cacheConfig = { ...DEFAULT_CACHE_CONFIG, ...options.cache }
+  void _cacheConfig // Suppress unused variable warning
 
   let lastError: any
 
@@ -198,7 +200,7 @@ export async function apiRequest<T>(
     try {
       // Add timeout if specified
       const controller = new AbortController()
-      let timeoutId: NodeJS.Timeout | undefined
+      let timeoutId: ReturnType<typeof setTimeout> | undefined
 
       if (options.timeout) {
         timeoutId = setTimeout(() => controller.abort(), options.timeout)
@@ -347,7 +349,7 @@ export function createDebouncedRequest<T extends (...args: any[]) => Promise<any
   fn: T,
   wait: number
 ): T {
-  let timeoutId: NodeJS.Timeout | undefined
+  let timeoutId: ReturnType<typeof setTimeout> | undefined
 
   return ((...args: Parameters<T>) => {
     return new Promise((resolve, reject) => {
