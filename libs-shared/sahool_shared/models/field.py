@@ -18,6 +18,10 @@ if TYPE_CHECKING:
     from sahool_shared.models.region import Region
     from sahool_shared.models.ndvi import NDVIResult
     from sahool_shared.models.weather import WeatherData
+    from sahool_shared.models.soil import SoilAnalysis
+    from sahool_shared.models.yield_record import YieldRecord
+    from sahool_shared.models.irrigation import IrrigationSchedule
+    from sahool_shared.models.plant_health import PlantHealth
 
 
 class Field(Base, TimestampMixin, TenantMixin):
@@ -154,6 +158,30 @@ class Field(Base, TimestampMixin, TenantMixin):
         "WeatherData",
         back_populates="field",
         lazy="selectin"
+    )
+    soil_analyses: Mapped[list["SoilAnalysis"]] = relationship(
+        "SoilAnalysis",
+        back_populates="field",
+        lazy="selectin",
+        order_by="desc(SoilAnalysis.analysis_date)"
+    )
+    yield_records: Mapped[list["YieldRecord"]] = relationship(
+        "YieldRecord",
+        back_populates="field",
+        lazy="selectin",
+        order_by="desc(YieldRecord.year)"
+    )
+    irrigation_schedules: Mapped[list["IrrigationSchedule"]] = relationship(
+        "IrrigationSchedule",
+        back_populates="field",
+        lazy="selectin",
+        order_by="desc(IrrigationSchedule.schedule_date)"
+    )
+    plant_health_records: Mapped[list["PlantHealth"]] = relationship(
+        "PlantHealth",
+        back_populates="field",
+        lazy="selectin",
+        order_by="desc(PlantHealth.detected_at)"
     )
 
     # Constraints
