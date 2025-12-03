@@ -14,6 +14,7 @@ from sahool_shared.auth.jwt import (
 from sahool_shared.auth.password import (
     hash_password,
     verify_password,
+    needs_rehash,
 )
 from sahool_shared.auth.dependencies import (
     get_current_user,
@@ -31,6 +32,7 @@ __all__ = [
     "decode_token",
     "hash_password",
     "verify_password",
+    "needs_rehash",
     "get_current_user",
     "get_current_active_user",
     "require_role",
