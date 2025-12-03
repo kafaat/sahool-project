@@ -78,7 +78,7 @@ class PlantHealth(Base, TimestampMixin, TenantMixin):
         nullable=True,
         comment="رابط الصورة"
     )
-    metadata: Mapped[Optional[dict[str, Any]]] = mapped_column(
+    extra_data: Mapped[Optional[dict[str, Any]]] = mapped_column(
         JSON,
         default={},
         comment="بيانات إضافية"

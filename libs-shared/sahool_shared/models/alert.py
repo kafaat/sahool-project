@@ -129,7 +129,7 @@ class Alert(Base, TimestampMixin, TenantMixin):
     )
 
     # Metadata
-    metadata: Mapped[Optional[dict[str, Any]]] = mapped_column(
+    extra_data: Mapped[Optional[dict[str, Any]]] = mapped_column(
         JSON,
         nullable=True,
         comment="بيانات إضافية"
