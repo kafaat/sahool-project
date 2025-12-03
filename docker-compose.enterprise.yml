@@ -55,7 +55,7 @@ services:
     environment:
       DATABASE_URL: ${DATABASE_URL}
     ports:
-      - "9001:9000"
+      - "9002:9000"
     networks:
       - sahool-net
 
@@ -194,7 +194,7 @@ services:
       ALERTS_URL: http://alerts-core:8004
       ANALYTICS_URL: http://analytics-core:8005
     ports:
-      - "9000:9000"
+      - "8080:9000"
     networks:
       - sahool-net
 
