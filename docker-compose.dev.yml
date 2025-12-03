@@ -1,0 +1,259 @@
+# ============================================================
+# Sahool Yemen Platform - Development Environment
+# منصة سهول اليمن - بيئة التطوير المحلية
+# ============================================================
+# Usage:
+#   docker-compose -f docker-compose.dev.yml up -d
+#   docker-compose -f docker-compose.dev.yml down
+#   docker-compose -f docker-compose.dev.yml logs -f [service]
+# ============================================================
+
+version: "3.9"
+
+networks:
+  sahool-dev:
+    driver: bridge
+
+services:
+  # ============================================================
+  # Infrastructure Services - خدمات البنية التحتية
+  # ============================================================
+
+  postgres:
+    image: postgis/postgis:15-3.4
+    container_name: sahool-dev-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: sahool_dev
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata_dev:/var/lib/postgresql/data
+      - ./field_suite_service/postgres/init:/docker-entrypoint-initdb.d:ro
+    networks:
+      - sahool-dev
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d sahool_dev"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: sahool-dev-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_dev:/data
+    networks:
+      - sahool-dev
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    image: minio/minio:latest
+    container_name: sahool-dev-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_dev:/data
+    networks:
+      - sahool-dev
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ============================================================
+  # Core API Service - الخدمة الرئيسية
+  # ============================================================
+
+  field-suite-api:
+    build:
+      context: ./field_suite_service
+      dockerfile: Dockerfile
+    container_name: sahool-dev-api
+    restart: unless-stopped
+    environment:
+      - ENV=development
+      - DEBUG=true
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/sahool_dev
+      - REDIS_URL=redis://redis:6379/0
+      - MINIO_ENDPOINT=http://minio:9000
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD=minioadmin
+      - JWT_SECRET_KEY=dev-secret-key-change-in-production
+      - CORS_ORIGINS=http://localhost:3000,http://localhost:5173
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./field_suite_service:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - sahool-dev
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ============================================================
+  # Microservices - الخدمات المصغرة
+  # ============================================================
+
+  geo-core:
+    build:
+      context: ./nano_services/geo-core
+    container_name: sahool-dev-geo
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/sahool_dev
+      - ENV=development
+    ports:
+      - "8005:8005"
+    volumes:
+      - ./nano_services/geo-core:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - sahool-dev
+
+  weather-core:
+    build:
+      context: ./nano_services/weather-core
+    container_name: sahool-dev-weather
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/sahool_dev
+      - REDIS_URL=redis://redis:6379/0
+      - ENV=development
+    ports:
+      - "8003:8003"
+    volumes:
+      - ./nano_services/weather-core:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - sahool-dev
+
+  analytics-core:
+    build:
+      context: ./nano_services/analytics-core
+    container_name: sahool-dev-analytics
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/sahool_dev
+      - ENV=development
+    ports:
+      - "8007:8005"
+    volumes:
+      - ./nano_services/analytics-core:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - sahool-dev
+
+  advisor-core:
+    build:
+      context: ./services/advisor
+    container_name: sahool-dev-advisor
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/sahool_dev
+      - ENV=development
+    ports:
+      - "8008:8000"
+    volumes:
+      - ./services/advisor:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - sahool-dev
+
+  # ============================================================
+  # Frontend Development - واجهة المستخدم
+  # ============================================================
+
+  frontend:
+    build:
+      context: ./field_suite_frontend
+      dockerfile: Dockerfile.dev
+    container_name: sahool-dev-frontend
+    restart: unless-stopped
+    environment:
+      - VITE_API_URL=http://localhost:8000
+      - VITE_WS_URL=ws://localhost:8000
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./field_suite_frontend:/app
+      - /app/node_modules
+    depends_on:
+      - field-suite-api
+    networks:
+      - sahool-dev
+
+  # ============================================================
+  # Monitoring & Tools - المراقبة والأدوات
+  # ============================================================
+
+  adminer:
+    image: adminer:latest
+    container_name: sahool-dev-adminer
+    restart: unless-stopped
+    ports:
+      - "8081:8080"
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+    depends_on:
+      - postgres
+    networks:
+      - sahool-dev
+
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: sahool-dev-redis-ui
+    restart: unless-stopped
+    environment:
+      REDIS_HOSTS: local:redis:6379
+    ports:
+      - "8082:8081"
+    depends_on:
+      - redis
+    networks:
+      - sahool-dev
+
+# ============================================================
+# Volumes - وحدات التخزين
+# ============================================================
+volumes:
+  pgdata_dev:
+    name: sahool_dev_pgdata
+  redis_dev:
+    name: sahool_dev_redis
+  minio_dev:
+    name: sahool_dev_minio
