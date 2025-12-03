@@ -31,3 +31,14 @@ CREATE INDEX idx_regions_location ON regions USING GIST(coordinates);
 -- فهارس النصوص الكاملة
 CREATE INDEX idx_fields_name_ar ON fields USING gin(to_tsvector('arabic', name_ar));
 CREATE INDEX idx_farmers_name ON farmers USING gin(to_tsvector('arabic', name));
+
+-- فهارس JSONB للبيانات الوصفية
+CREATE INDEX idx_ndvi_tile_metadata ON ndvi_results USING gin(tile_metadata);
+CREATE INDEX idx_health_metadata ON plant_health USING gin(metadata);
+CREATE INDEX idx_audit_old_values ON audit_logs USING gin(old_values);
+CREATE INDEX idx_audit_new_values ON audit_logs USING gin(new_values);
+
+-- فهارس مركّبة للاستعلامات الشائعة
+CREATE INDEX idx_ndvi_field_date ON ndvi_results(field_id, acquisition_date DESC);
+CREATE INDEX idx_weather_region_date ON weather_data(region_id, forecast_date DESC);
+CREATE INDEX idx_health_field_severity ON plant_health(field_id, severity_level);
