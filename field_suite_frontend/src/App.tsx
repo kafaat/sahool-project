@@ -8,6 +8,8 @@ import Advisor from './pages/Advisor'
 import Regions from './pages/Regions'
 import Login from './pages/Login'
 import Settings from './pages/Settings'
+import Analytics from './pages/Analytics'
+import Imagery from './pages/Imagery'
 import ErrorBoundary from './components/ErrorBoundary'
 import { useAuthStore } from './store/authStore'
 
@@ -52,6 +54,8 @@ function App() {
               <Route path="weather" element={<Weather />} />
               <Route path="advisor" element={<Advisor />} />
               <Route path="regions" element={<Regions />} />
+              <Route path="analytics" element={<Analytics />} />
+              <Route path="imagery" element={<Imagery />} />
               <Route path="settings" element={<Settings />} />
             </Route>
 
