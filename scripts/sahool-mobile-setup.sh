@@ -167,29 +167,32 @@ npm install axios@^1.6.8 \
     @tanstack/react-query@^5.28.0 \
     zustand@^4.5.2
 
-# Expo packages
-npm install expo-linear-gradient@~13.0.2 \
-    expo-location@~17.0.1 \
-    expo-notifications@~0.28.0 \
-    expo-secure-store@~13.0.1 \
-    expo-image-picker@~15.0.4 \
-    expo-speech@~12.0.1 \
-    expo-font@~12.0.5
+# Expo packages - Compatible with SDK 54
+npm install --legacy-peer-deps \
+    expo-linear-gradient \
+    expo-location \
+    expo-notifications \
+    expo-secure-store \
+    expo-image-picker \
+    expo-speech
 
 # React Native packages
-npm install react-native-reanimated@~3.10.0 \
-    react-native-gesture-handler@~2.16.0 \
-    react-native-maps@1.14.0 \
-    react-native-safe-area-context@4.10.1 \
-    react-native-svg@15.2.0
+npm install --legacy-peer-deps \
+    react-native-reanimated \
+    react-native-gesture-handler \
+    react-native-maps \
+    react-native-safe-area-context \
+    react-native-svg
 
 # Icons & Animations
-npm install lucide-react-native@^0.378.0 \
-    lottie-react-native@^6.7.0
+npm install --legacy-peer-deps \
+    lucide-react-native \
+    lottie-react-native
 
 # Storage
-npm install @react-native-async-storage/async-storage@1.23.1 \
-    @shopify/flash-list@1.6.4
+npm install --legacy-peer-deps \
+    @react-native-async-storage/async-storage \
+    @shopify/flash-list
 
 # Dev dependencies
 npm install -D typescript@^5.4.0 \
