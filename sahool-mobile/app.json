@@ -1,0 +1,38 @@
+{
+  "expo": {
+    "name": "SAHOOL Mobile",
+    "slug": "sahool-mobile",
+    "version": "4.2.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "sahool",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "image": "./assets/images/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0D1F17"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.sahool.mobile"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#1B4D3E"
+      },
+      "package": "com.sahool.mobile"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      ["expo-location", {
+        "locationAlwaysAndWhenInUsePermission": "Allow SAHOOL to use your location."
+      }]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

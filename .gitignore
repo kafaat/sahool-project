@@ -117,3 +117,4 @@ pgdata*/
 # Secrets
 secrets/
 *.secret
+sahool-mobile/node_modules/
