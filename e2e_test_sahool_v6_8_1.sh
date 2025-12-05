@@ -4,10 +4,26 @@
 # Tests: Auth, RBAC, Geo, Agent, Offline Sync, Flutter
 # 100% Pass Rate Guaranteed
 # ===================================================================
+# Usage:
+#   cd sahool-platform-v6-final && ../e2e_test_sahool_v6_8_1.sh
+#   OR
+#   cd sahool-platform-v6-final && ./e2e_test_sahool_v6_8_1.sh (if copied)
+#
+# Note: This test suite is designed for the v6.8.1 deployment created by
+#       build_sahool_v6_8_1_final_corrected.sh in sahool-platform-v6-final/
+# ===================================================================
 set -euo pipefail
 
 # ===================== CONFIGURATION =====================
-PROJECT_DIR="$(pwd)"
+# Auto-detect project directory
+if [[ -f "docker-compose.yml" && -d "auth-service" && -d "sahool-flutter" ]]; then
+    PROJECT_DIR="$(pwd)"
+elif [[ -d "sahool-platform-v6-final" ]]; then
+    PROJECT_DIR="$(pwd)/sahool-platform-v6-final"
+else
+    PROJECT_DIR="$(pwd)"
+fi
+
 API_URL="http://localhost:9000/api"
 GREEN='\033[0;32m'; RED='\033[0;31m'; YELLOW='\033[1;33m'; CYAN='\033[0;36m'; NC='\033[0m'
 

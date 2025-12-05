@@ -3,6 +3,22 @@
 # SAHOOL Platform v6.8.1 FINAL CORRECTED - PRODUCTION UNIFIED SCRIPT
 # All Critical Bugs Fixed | Security Hardened | 100% Ready
 # ===================================================================
+#
+# COMPATIBILITY NOTE:
+# This script creates a STANDALONE deployment in ./sahool-platform-v6-final/
+# It does NOT modify existing files in the current directory.
+#
+# PORT USAGE (ensure these are free before running):
+#   - 9000: Kong API Gateway (conflicts with MinIO in base docker-compose.yml)
+#   - 8443: Kong HTTPS
+#   - 5432: PostgreSQL (if using default)
+#   - 6379: Redis (if using default)
+#
+# If running alongside existing sahool deployments, stop them first:
+#   docker compose down
+#   docker compose -f docker-compose.dev.yml down
+#
+# ===================================================================
 set -euo pipefail
 
 # ===================== CONFIGURATION & UTILS =====================
@@ -29,6 +45,20 @@ check_requirements() {
     fi
     [[ ${#missing[@]} -eq 0 ]] || error "Missing required tools: ${missing[*]}"
     log "All required tools are installed (Using: $COMPOSE_CMD)"
+
+    # Check for port conflicts
+    local port_conflicts=()
+    for port in 9000 8443 5432 6379; do
+        if ss -tuln 2>/dev/null | grep -q ":$port " || netstat -tuln 2>/dev/null | grep -q ":$port "; then
+            port_conflicts+=("$port")
+        fi
+    done
+    if [[ ${#port_conflicts[@]} -gt 0 ]]; then
+        warn "Ports already in use: ${port_conflicts[*]}"
+        warn "Stop existing services before running docker compose:"
+        warn "  docker compose down (in current directory)"
+        warn "  docker compose -f docker-compose.dev.yml down"
+    fi
 }
 
 create_structure() {
