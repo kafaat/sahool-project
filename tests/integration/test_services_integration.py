@@ -3,14 +3,39 @@ Integration Tests for Sahool Yemen Services
 اختبارات التكامل لخدمات سهول اليمن
 """
 
-import os
+import sys
 import pytest
+from pathlib import Path
 from datetime import date
 from uuid import uuid4
 from unittest.mock import AsyncMock, MagicMock, patch
 
-# Get the project root directory dynamically
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Get the project root directory dynamically using pathlib
+PROJECT_ROOT = Path(__file__).parent.parent.parent
+
+
+def _get_service_app(service_name: str):
+    """
+    Helper function to import and return a service's FastAPI app.
+    
+    Args:
+        service_name: Name of the service (e.g., 'weather-core', 'geo-core')
+    
+    Returns:
+        The FastAPI app instance if available, None otherwise.
+    
+    Raises:
+        pytest.skip: If the service is not available.
+    """
+    service_path = str(PROJECT_ROOT / 'nano_services' / service_name)
+    if service_path not in sys.path:
+        sys.path.insert(0, service_path)
+    
+    try:
+        from app.main import app
+        return app
+    except ImportError:
+        pytest.skip(f"{service_name} service not available")
 
 
 class TestWeatherServiceIntegration:
@@ -30,17 +55,7 @@ class TestWeatherServiceIntegration:
         """Test weather service health endpoint."""
         from fastapi.testclient import TestClient
 
-        # Import dynamically to avoid import errors
-        import sys
-        weather_core_path = os.path.join(PROJECT_ROOT, 'nano_services', 'weather-core')
-        if weather_core_path not in sys.path:
-            sys.path.insert(0, weather_core_path)
-
-        try:
-            from app.main import app
-        except ImportError:
-            pytest.skip("Weather service not available")
-
+        app = _get_service_app('weather-core')
         client = TestClient(app)
         response = client.get("/health")
 
@@ -55,16 +70,7 @@ class TestWeatherServiceIntegration:
         """Test getting weather by region."""
         from fastapi.testclient import TestClient
 
-        import sys
-        weather_core_path = os.path.join(PROJECT_ROOT, 'nano_services', 'weather-core')
-        if weather_core_path not in sys.path:
-            sys.path.insert(0, weather_core_path)
-
-        try:
-            from app.main import app
-        except ImportError:
-            pytest.skip("Weather service not available")
-
+        app = _get_service_app('weather-core')
         client = TestClient(app)
         response = client.get("/api/v1/weather/regions/1")
 
@@ -79,16 +85,7 @@ class TestWeatherServiceIntegration:
         """Test weather forecast endpoint."""
         from fastapi.testclient import TestClient
 
-        import sys
-        weather_core_path = os.path.join(PROJECT_ROOT, 'nano_services', 'weather-core')
-        if weather_core_path not in sys.path:
-            sys.path.insert(0, weather_core_path)
-
-        try:
-            from app.main import app
-        except ImportError:
-            pytest.skip("Weather service not available")
-
+        app = _get_service_app('weather-core')
         client = TestClient(app)
         response = client.get("/api/v1/weather/regions/1/forecast?days=5")
 
@@ -102,16 +99,7 @@ class TestWeatherServiceIntegration:
         """Test weather alerts endpoint."""
         from fastapi.testclient import TestClient
 
-        import sys
-        weather_core_path = os.path.join(PROJECT_ROOT, 'nano_services', 'weather-core')
-        if weather_core_path not in sys.path:
-            sys.path.insert(0, weather_core_path)
-
-        try:
-            from app.main import app
-        except ImportError:
-            pytest.skip("Weather service not available")
-
+        app = _get_service_app('weather-core')
         client = TestClient(app)
         response = client.get("/api/v1/weather/alerts")
 
@@ -128,16 +116,7 @@ class TestGeoServiceIntegration:
         """Test geo service health endpoint."""
         from fastapi.testclient import TestClient
 
-        import sys
-        geo_core_path = os.path.join(PROJECT_ROOT, 'nano_services', 'geo-core')
-        if geo_core_path not in sys.path:
-            sys.path.insert(0, geo_core_path)
-
-        try:
-            from app.main import app
-        except ImportError:
-            pytest.skip("Geo service not available")
-
+        app = _get_service_app('geo-core')
         client = TestClient(app)
         response = client.get("/health")
 
@@ -151,16 +130,7 @@ class TestGeoServiceIntegration:
         """Test area computation."""
         from fastapi.testclient import TestClient
 
-        import sys
-        geo_core_path = os.path.join(PROJECT_ROOT, 'nano_services', 'geo-core')
-        if geo_core_path not in sys.path:
-            sys.path.insert(0, geo_core_path)
-
-        try:
-            from app.main import app
-        except ImportError:
-            pytest.skip("Geo service not available")
-
+        app = _get_service_app('geo-core')
         client = TestClient(app)
 
         # Simple polygon in Yemen coordinates
@@ -189,16 +159,7 @@ class TestGeoServiceIntegration:
         """Test elevation endpoint."""
         from fastapi.testclient import TestClient
 
-        import sys
-        geo_core_path = os.path.join(PROJECT_ROOT, 'nano_services', 'geo-core')
-        if geo_core_path not in sys.path:
-            sys.path.insert(0, geo_core_path)
-
-        try:
-            from app.main import app
-        except ImportError:
-            pytest.skip("Geo service not available")
-
+        app = _get_service_app('geo-core')
         client = TestClient(app)
         response = client.get("/api/v1/geo/elevation?lat=15.3&lon=44.2")
 
@@ -213,16 +174,7 @@ class TestGeoServiceIntegration:
         """Test distance calculation."""
         from fastapi.testclient import TestClient
 
-        import sys
-        geo_core_path = os.path.join(PROJECT_ROOT, 'nano_services', 'geo-core')
-        if geo_core_path not in sys.path:
-            sys.path.insert(0, geo_core_path)
-
-        try:
-            from app.main import app
-        except ImportError:
-            pytest.skip("Geo service not available")
-
+        app = _get_service_app('geo-core')
         client = TestClient(app)
         response = client.get(
             "/api/v1/geo/distance?lat1=15.3&lon1=44.2&lat2=13.5&lon2=44.0"
@@ -240,16 +192,7 @@ class TestGeoServiceIntegration:
         """Test zone info endpoint."""
         from fastapi.testclient import TestClient
 
-        import sys
-        geo_core_path = os.path.join(PROJECT_ROOT, 'nano_services', 'geo-core')
-        if geo_core_path not in sys.path:
-            sys.path.insert(0, geo_core_path)
-
-        try:
-            from app.main import app
-        except ImportError:
-            pytest.skip("Geo service not available")
-
+        app = _get_service_app('geo-core')
         client = TestClient(app)
         response = client.get("/api/v1/geo/zone-info?lat=15.3&lon=44.2")
 
@@ -264,16 +207,7 @@ class TestGeoServiceIntegration:
         """Test geometry validation."""
         from fastapi.testclient import TestClient
 
-        import sys
-        geo_core_path = os.path.join(PROJECT_ROOT, 'nano_services', 'geo-core')
-        if geo_core_path not in sys.path:
-            sys.path.insert(0, geo_core_path)
-
-        try:
-            from app.main import app
-        except ImportError:
-            pytest.skip("Geo service not available")
-
+        app = _get_service_app('geo-core')
         client = TestClient(app)
 
         # Valid point
@@ -289,16 +223,7 @@ class TestGeoServiceIntegration:
         """Test invalid geometry validation."""
         from fastapi.testclient import TestClient
 
-        import sys
-        geo_core_path = os.path.join(PROJECT_ROOT, 'nano_services', 'geo-core')
-        if geo_core_path not in sys.path:
-            sys.path.insert(0, geo_core_path)
-
-        try:
-            from app.main import app
-        except ImportError:
-            pytest.skip("Geo service not available")
-
+        app = _get_service_app('geo-core')
         client = TestClient(app)
 
         # Invalid - outside Yemen
