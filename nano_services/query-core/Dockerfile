@@ -5,10 +5,16 @@ LABEL description="Query Core Service - سهول اليمن"
 
 WORKDIR /app
 
-COPY requirements.txt .
+# Install shared library first
+COPY libs-shared ./libs-shared
+RUN pip install --no-cache-dir ./libs-shared
+
+# Install service dependencies
+COPY nano_services/query-core/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY app ./app
+# Copy application
+COPY nano_services/query-core/app ./app
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
