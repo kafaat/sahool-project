@@ -38,7 +38,7 @@ check_requirements() {
     for cmd in git docker openssl flutter curl jq; do
         command -v "$cmd" &>/dev/null || missing+=("$cmd")
     done
-    if docker compose version &>/dev/null 2>&1; then
+    if docker compose version &>/dev/null; then
         COMPOSE_CMD="docker compose"
     else
         COMPOSE_CMD="docker-compose"
@@ -115,8 +115,8 @@ MAPBOX_TOKEN=your_mapbox_token_here
 EOF
 
     chmod 600 .env
-    log ".env created with secure random passwords"
-    warn "ADMIN PASSWORD: $ADMIN_PASS  |  SAVE THIS SECURELY!"
+    log ".env created with secure random passwords (chmod 600)"
+    warn "Admin credentials stored in .env file - DO NOT share or commit this file!"
 }
 
 # ===================== DATABASE SCHEMA =====================
@@ -423,7 +423,7 @@ async function seedAdminUser() {
             await pool.query('INSERT INTO user_roles (user_id, role_id) VALUES ($1,$2) ON CONFLICT DO NOTHING', [userId, r.id]);
         }
 
-        console.log(`[AUTH-SERVICE] SEEDED ADMIN USER: username=admin | password=${password}`);
+        console.log('[AUTH-SERVICE] Admin user seeded successfully (credentials in .env)');
     }
 }
 

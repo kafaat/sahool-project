@@ -77,7 +77,7 @@ check_dependencies() {
     done
 
     # Check Docker Compose
-    if docker compose version &>/dev/null 2>&1; then
+    if docker compose version &>/dev/null; then
         COMPOSE_CMD="docker compose"
     elif command -v docker-compose &>/dev/null; then
         COMPOSE_CMD="docker-compose"
@@ -249,11 +249,11 @@ do_status() {
         fi
     done
 
-    # Show admin credentials
+    # Show credentials hint
     if [[ -f "$PROJECT_DIR/.env" ]]; then
         echo -e "\n${CYAN}Credentials:${NC}"
-        source "$PROJECT_DIR/.env"
-        echo -e "  Admin Password: ${YELLOW}$ADMIN_SEED_PASSWORD${NC}"
+        echo -e "  Admin user: ${YELLOW}admin${NC}"
+        echo -e "  Password: ${YELLOW}See .env file (ADMIN_SEED_PASSWORD)${NC}"
     fi
 }
 
@@ -382,10 +382,9 @@ do_full() {
     echo ""
 
     if [[ -f "$PROJECT_DIR/.env" ]]; then
-        source "$PROJECT_DIR/.env"
         echo -e "${CYAN}Login Credentials:${NC}"
         echo "  Username: admin"
-        echo -e "  Password: ${YELLOW}$ADMIN_SEED_PASSWORD${NC}"
+        echo -e "  Password: ${YELLOW}See .env file (ADMIN_SEED_PASSWORD)${NC}"
     fi
 
     echo -e "\n${CYAN}Next Steps:${NC}"
