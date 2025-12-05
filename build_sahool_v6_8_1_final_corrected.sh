@@ -1540,6 +1540,18 @@ EOF
     log "Installing Flutter dependencies (this may take a while)..."
     flutter pub get || warn "flutter pub get failed. Run it manually: cd sahool-flutter && flutter pub get"
 
+    # Optional: Build APK directly
+    if [[ "${BUILD_APK:-}" == "true" ]] || [[ "$*" == *"--build-apk"* ]]; then
+        log "Building APK... (This may take 10-15 minutes)"
+        flutter build apk --release --no-shrink
+        if [[ -f "build/app/outputs/flutter-apk/app-release.apk" ]]; then
+            log "✅ APK built successfully!"
+            log "Location: $(pwd)/build/app/outputs/flutter-apk/app-release.apk"
+        else
+            warn "APK build failed. Run manually with: flutter build apk --release"
+        fi
+    fi
+
     cd "$PROJECT_DIR"
     log "Flutter app structure completed"
 }
