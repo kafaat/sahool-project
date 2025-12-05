@@ -148,11 +148,14 @@ CREATE TABLE fields (
 
 CREATE TABLE field_tasks (
     task_id    UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    field_id   UUID REFERENCES fields(id) ON DELETE SET NULL,
+    field_id   TEXT,  -- Supports both UUID refs and offline string IDs
     description TEXT,
     status     VARCHAR(50) DEFAULT 'PENDING',
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Optional: Index for faster lookups
+CREATE INDEX idx_field_tasks_field_id ON field_tasks(field_id);
 
 -- RBAC Tables
 CREATE TABLE users (
@@ -226,7 +229,7 @@ services:
     paths: ["/api/auth"]
     strip_path: true
 - name: config-service
-  url: http://config-service:3005
+  url: http://config-service:3000
   routes:
   - name: config-route
     paths: ["/api/config"]
@@ -583,7 +586,7 @@ const helmet = require('helmet');
 const cors = require('cors');
 
 const app  = express();
-const PORT = 3005;
+const PORT = 3000;
 
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
@@ -903,8 +906,8 @@ class ApiService {
   }
 
   static Future<bool> get isOnline async {
-    final result = await Connectivity().checkConnectivity();
-    return result != ConnectivityResult.none;
+    final results = await Connectivity().checkConnectivity();
+    return results.isNotEmpty && !results.contains(ConnectivityResult.none);
   }
 
   static Future<Map<String, String>> _headers() async {
@@ -1199,10 +1202,11 @@ class _MainAppScreenState extends State<MainAppScreen> {
       bottomNavigationBar: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          StreamBuilder<ConnectivityResult>(
+          StreamBuilder<List<ConnectivityResult>>(
             stream: Connectivity().onConnectivityChanged,
             builder: (context, snapshot) {
-              final isOnline = snapshot.data != ConnectivityResult.none;
+              final results = snapshot.data ?? [];
+              final isOnline = results.isNotEmpty && !results.contains(ConnectivityResult.none);
               return Container(
                 height: 24,
                 color: isOnline ? Colors.green.shade600 : Colors.red.shade600,
@@ -1580,7 +1584,7 @@ services:
     networks:
       - sahool
     healthcheck:
-      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      test: ["CMD-SHELL", "redis-cli -a $REDIS_PASSWORD ping | grep -q PONG"]
       interval: 10s
       timeout: 5s
       retries: 5
