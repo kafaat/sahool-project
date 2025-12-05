@@ -22,10 +22,10 @@ def _get_service_app(service_name: str):
         service_name: Name of the service (e.g., 'weather-core', 'geo-core')
     
     Returns:
-        The FastAPI app instance if available, None otherwise.
+        The FastAPI app instance if available.
     
     Raises:
-        pytest.skip: If the service is not available.
+        pytest.skip: If the service is not available (ImportError).
     """
     service_path = str(PROJECT_ROOT / 'nano_services' / service_name)
     if service_path not in sys.path:
