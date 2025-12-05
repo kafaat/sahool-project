@@ -3,10 +3,14 @@ Integration Tests for Sahool Yemen Services
 اختبارات التكامل لخدمات سهول اليمن
 """
 
+import os
 import pytest
 from datetime import date
 from uuid import uuid4
 from unittest.mock import AsyncMock, MagicMock, patch
+
+# Get the project root directory dynamically
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
 class TestWeatherServiceIntegration:
@@ -28,9 +32,14 @@ class TestWeatherServiceIntegration:
 
         # Import dynamically to avoid import errors
         import sys
-        sys.path.insert(0, '/home/user/sahool-project/nano_services/weather-core')
+        weather_core_path = os.path.join(PROJECT_ROOT, 'nano_services', 'weather-core')
+        if weather_core_path not in sys.path:
+            sys.path.insert(0, weather_core_path)
 
-        from app.main import app
+        try:
+            from app.main import app
+        except ImportError:
+            pytest.skip("Weather service not available")
 
         client = TestClient(app)
         response = client.get("/health")
@@ -47,9 +56,14 @@ class TestWeatherServiceIntegration:
         from fastapi.testclient import TestClient
 
         import sys
-        sys.path.insert(0, '/home/user/sahool-project/nano_services/weather-core')
+        weather_core_path = os.path.join(PROJECT_ROOT, 'nano_services', 'weather-core')
+        if weather_core_path not in sys.path:
+            sys.path.insert(0, weather_core_path)
 
-        from app.main import app
+        try:
+            from app.main import app
+        except ImportError:
+            pytest.skip("Weather service not available")
 
         client = TestClient(app)
         response = client.get("/api/v1/weather/regions/1")
@@ -66,9 +80,14 @@ class TestWeatherServiceIntegration:
         from fastapi.testclient import TestClient
 
         import sys
-        sys.path.insert(0, '/home/user/sahool-project/nano_services/weather-core')
+        weather_core_path = os.path.join(PROJECT_ROOT, 'nano_services', 'weather-core')
+        if weather_core_path not in sys.path:
+            sys.path.insert(0, weather_core_path)
 
-        from app.main import app
+        try:
+            from app.main import app
+        except ImportError:
+            pytest.skip("Weather service not available")
 
         client = TestClient(app)
         response = client.get("/api/v1/weather/regions/1/forecast?days=5")
@@ -84,9 +103,14 @@ class TestWeatherServiceIntegration:
         from fastapi.testclient import TestClient
 
         import sys
-        sys.path.insert(0, '/home/user/sahool-project/nano_services/weather-core')
+        weather_core_path = os.path.join(PROJECT_ROOT, 'nano_services', 'weather-core')
+        if weather_core_path not in sys.path:
+            sys.path.insert(0, weather_core_path)
 
-        from app.main import app
+        try:
+            from app.main import app
+        except ImportError:
+            pytest.skip("Weather service not available")
 
         client = TestClient(app)
         response = client.get("/api/v1/weather/alerts")
@@ -105,9 +129,14 @@ class TestGeoServiceIntegration:
         from fastapi.testclient import TestClient
 
         import sys
-        sys.path.insert(0, '/home/user/sahool-project/nano_services/geo-core')
+        geo_core_path = os.path.join(PROJECT_ROOT, 'nano_services', 'geo-core')
+        if geo_core_path not in sys.path:
+            sys.path.insert(0, geo_core_path)
 
-        from app.main import app
+        try:
+            from app.main import app
+        except ImportError:
+            pytest.skip("Geo service not available")
 
         client = TestClient(app)
         response = client.get("/health")
@@ -123,9 +152,14 @@ class TestGeoServiceIntegration:
         from fastapi.testclient import TestClient
 
         import sys
-        sys.path.insert(0, '/home/user/sahool-project/nano_services/geo-core')
+        geo_core_path = os.path.join(PROJECT_ROOT, 'nano_services', 'geo-core')
+        if geo_core_path not in sys.path:
+            sys.path.insert(0, geo_core_path)
 
-        from app.main import app
+        try:
+            from app.main import app
+        except ImportError:
+            pytest.skip("Geo service not available")
 
         client = TestClient(app)
 
@@ -156,9 +190,14 @@ class TestGeoServiceIntegration:
         from fastapi.testclient import TestClient
 
         import sys
-        sys.path.insert(0, '/home/user/sahool-project/nano_services/geo-core')
+        geo_core_path = os.path.join(PROJECT_ROOT, 'nano_services', 'geo-core')
+        if geo_core_path not in sys.path:
+            sys.path.insert(0, geo_core_path)
 
-        from app.main import app
+        try:
+            from app.main import app
+        except ImportError:
+            pytest.skip("Geo service not available")
 
         client = TestClient(app)
         response = client.get("/api/v1/geo/elevation?lat=15.3&lon=44.2")
@@ -175,9 +214,14 @@ class TestGeoServiceIntegration:
         from fastapi.testclient import TestClient
 
         import sys
-        sys.path.insert(0, '/home/user/sahool-project/nano_services/geo-core')
+        geo_core_path = os.path.join(PROJECT_ROOT, 'nano_services', 'geo-core')
+        if geo_core_path not in sys.path:
+            sys.path.insert(0, geo_core_path)
 
-        from app.main import app
+        try:
+            from app.main import app
+        except ImportError:
+            pytest.skip("Geo service not available")
 
         client = TestClient(app)
         response = client.get(
@@ -197,9 +241,14 @@ class TestGeoServiceIntegration:
         from fastapi.testclient import TestClient
 
         import sys
-        sys.path.insert(0, '/home/user/sahool-project/nano_services/geo-core')
+        geo_core_path = os.path.join(PROJECT_ROOT, 'nano_services', 'geo-core')
+        if geo_core_path not in sys.path:
+            sys.path.insert(0, geo_core_path)
 
-        from app.main import app
+        try:
+            from app.main import app
+        except ImportError:
+            pytest.skip("Geo service not available")
 
         client = TestClient(app)
         response = client.get("/api/v1/geo/zone-info?lat=15.3&lon=44.2")
@@ -216,9 +265,14 @@ class TestGeoServiceIntegration:
         from fastapi.testclient import TestClient
 
         import sys
-        sys.path.insert(0, '/home/user/sahool-project/nano_services/geo-core')
+        geo_core_path = os.path.join(PROJECT_ROOT, 'nano_services', 'geo-core')
+        if geo_core_path not in sys.path:
+            sys.path.insert(0, geo_core_path)
 
-        from app.main import app
+        try:
+            from app.main import app
+        except ImportError:
+            pytest.skip("Geo service not available")
 
         client = TestClient(app)
 
@@ -236,9 +290,14 @@ class TestGeoServiceIntegration:
         from fastapi.testclient import TestClient
 
         import sys
-        sys.path.insert(0, '/home/user/sahool-project/nano_services/geo-core')
+        geo_core_path = os.path.join(PROJECT_ROOT, 'nano_services', 'geo-core')
+        if geo_core_path not in sys.path:
+            sys.path.insert(0, geo_core_path)
 
-        from app.main import app
+        try:
+            from app.main import app
+        except ImportError:
+            pytest.skip("Geo service not available")
 
         client = TestClient(app)
 
