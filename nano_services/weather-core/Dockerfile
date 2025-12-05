@@ -5,12 +5,16 @@ LABEL description="Weather Core Service - سهول اليمن"
 
 WORKDIR /app
 
-# Install dependencies
-COPY requirements.txt .
+# Install shared library first
+COPY libs-shared ./libs-shared
+RUN pip install --no-cache-dir ./libs-shared
+
+# Install service dependencies
+COPY nano_services/weather-core/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application
-COPY app ./app
+COPY nano_services/weather-core/app ./app
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
