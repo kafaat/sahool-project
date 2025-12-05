@@ -3,12 +3,21 @@ FROM python:3.11-slim
 LABEL maintainer="Sahool Yemen <dev@sahool.ye>"
 LABEL description="Geo Core Service - سهول اليمن"
 
+# Install curl for healthcheck
+RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
-COPY requirements.txt .
+# Install shared library first
+COPY libs-shared ./libs-shared
+RUN pip install --no-cache-dir ./libs-shared
+
+# Install service dependencies
+COPY nano_services/geo-core/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY app ./app
+# Copy application
+COPY nano_services/geo-core/app ./app
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1

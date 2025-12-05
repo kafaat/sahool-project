@@ -9,4 +9,4 @@ structlog==24.1.0
 sqlalchemy[asyncio]==2.0.25
 asyncpg==0.29.0
 python-jose[cryptography]==3.3.0
-sahool-shared>=10.0.0
+# sahool-shared>=10.0.0  # Optional: Code handles fallback when not available

@@ -205,3 +205,65 @@ export type MainTabParamList = {
   Alerts: undefined;
   Profile: undefined;
 };
+
+// Equipment Types (v5.5)
+export interface Equipment {
+  id: string;
+  name: string;
+  type: string;
+  status: "active" | "idle" | "maintenance";
+  fuel: number;
+  location: { latitude: number; longitude: number };
+  lastUpdate: string;
+}
+
+// Weather Data Types (v5.5)
+export interface WeatherData {
+  current: {
+    temperature: number;
+    humidity: number;
+    windSpeed: number;
+    condition: string;
+  };
+  forecast: { date: string; temperature: { min: number; max: number }; precipitation: number; condition: string }[];
+  alerts: WeatherAlert[];
+}
+
+export interface WeatherAlert {
+  id: string;
+  type: string;
+  severity: "low" | "medium" | "high" | "extreme";
+  title: string;
+  description: string;
+  startTime: string;
+  endTime: string;
+}
+
+// NDVI Entry Types (v5.5)
+export interface NDVIEntry {
+  date: string;
+  value: number;
+  satellite: string;
+  cloudCoverage: number;
+}
+
+// Management Zone Types (v5.5)
+export interface Zone {
+  id: string;
+  fieldId: string;
+  zoneNumber: number;
+  name: string;
+  boundary: { latitude: number; longitude: number }[];
+  areaHectares: number;
+  avgNdvi: number;
+  productivityClass: "high" | "medium" | "low";
+  recommendations: string[];
+}
+
+// API Error Types (v5.5)
+export interface ApiError {
+  success: false;
+  message: string;
+  code: string;
+  details?: any;
+}
