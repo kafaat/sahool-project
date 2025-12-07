@@ -104,9 +104,7 @@ if [[ -f ".env" ]]; then
     source .env
     echo -e "\n${YELLOW}LOGIN CREDENTIALS:${NC}"
     echo -e "  Username: ${CYAN}admin${NC}"
-    if [[ "${SHOW_ADMIN_PASSWORD:-}" == "1" ]]; then
-        echo -e "  Password: ${CYAN}$ADMIN_SEED_PASSWORD${NC}"
-    fi
+    echo -e "  Password: ${CYAN}$ADMIN_SEED_PASSWORD${NC}"
 fi
 
 echo -e "\n${YELLOW}NEXT STEPS:${NC}"
