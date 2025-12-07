@@ -79,16 +79,17 @@ jobs:
         env:
           PGUSER: ${{ env.POSTGRES_USER }}
           PGPASSWORD: ${{ env.POSTGRES_PASSWORD }}
+          PGDATABASE: test_user
         run: |
           echo "Waiting for Postgres service to be ready..."
           until docker exec ${{ job.services.postgres.id }} pg_isready -U "$PGUSER"; do sleep 1; done
-          echo "Postgres is ready. Ensuring database 'test_user' exists..."
-          DB_EXISTS=$(docker exec -i ${{ job.services.postgres.id }} psql -U "$PGUSER" -tAc "SELECT 1 FROM pg_database WHERE datname='test_user'" || echo "0")
+          echo "Postgres is ready. Ensuring database '$PGDATABASE' exists..."
+          DB_EXISTS=$(docker exec -i ${{ job.services.postgres.id }} psql -U "$PGUSER" -tAc "SELECT 1 FROM pg_database WHERE datname='$PGDATABASE'" || echo "0")
           if [ "$DB_EXISTS" != "1" ]; then
-            echo "Creating database test_user..."
-            docker exec -i ${{ job.services.postgres.id }} psql -U "$PGUSER" -c "CREATE DATABASE test_user;"
+            echo "Creating database $PGDATABASE..."
+            docker exec -i ${{ job.services.postgres.id }} psql -U "$PGUSER" -c "CREATE DATABASE $PGDATABASE;"
           else
-            echo "Database test_user already exists."
+            echo "Database $PGDATABASE already exists."
           fi
 
       - name: Setup PostgreSQL roles and users
