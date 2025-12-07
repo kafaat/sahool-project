@@ -42,20 +42,22 @@ def _get_service_app(service_name: str):
         path_added = True
     
     try:
-        # Use importlib for safer dynamic import
-        spec = importlib.util.spec_from_file_location("app.main", main_path)
+        # Use importlib for safer dynamic import with unique module name
+        module_name = f"app.main.{service_name.replace('-', '_')}"
+        spec = importlib.util.spec_from_file_location(module_name, main_path)
         if spec is None or spec.loader is None:
             pytest.skip(f"Service {service_name} module spec could not be loaded")
         
         module = importlib.util.module_from_spec(spec)
-        sys.modules['app.main'] = module
+        # Use unique module name to avoid conflicts between service tests
+        sys.modules[module_name] = module
         spec.loader.exec_module(module)
         
         if not hasattr(module, 'app'):
             pytest.skip(f"Service {service_name} does not export 'app'")
         
         return module.app
-    except (ImportError, NameError, AttributeError, Exception) as e:
+    except (ImportError, ModuleNotFoundError, NameError, AttributeError) as e:
         pytest.skip(f"Service {service_name} not available: {e}")
     finally:
         # Clean up sys.path to avoid import pollution
