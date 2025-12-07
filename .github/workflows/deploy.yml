@@ -77,9 +77,11 @@ jobs:
 
       - name: Setup PostgreSQL database and roles
         run: |
-          # Ensure test_user database exists
-          PGPASSWORD=test_pass psql -h localhost -U test_user -d test_user -c "SELECT 1;" || \
-          PGPASSWORD=test_pass createdb -h localhost -U test_user test_user || true
+          # Wait for PostgreSQL to be ready
+          until pg_isready -h localhost -p 5432 -U test_user; do
+            echo "Waiting for PostgreSQL..."
+            sleep 2
+          done
           
           # Create additional roles if needed
           PGPASSWORD=test_pass psql -h localhost -U test_user -d test_user -c "CREATE ROLE root WITH LOGIN SUPERUSER PASSWORD 'root';" || true
