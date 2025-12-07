@@ -253,7 +253,11 @@ do_status() {
     if [[ -f "$PROJECT_DIR/.env" ]]; then
         echo -e "\n${CYAN}Credentials:${NC}"
         source "$PROJECT_DIR/.env"
-        echo -e "  Admin Password: ${YELLOW}$ADMIN_SEED_PASSWORD${NC}"
+        if [[ -n "${ADMIN_SEED_PASSWORD:-}" ]]; then
+            echo -e "  Admin password is configured."
+        else
+            echo -e "  Admin password is NOT set."
+        fi
     fi
 }
 
