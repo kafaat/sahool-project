@@ -17,11 +17,9 @@ import sys
 sys.path.insert(0, "/app/libs-shared")
 
 try:
-    from sahool_shared.schemas.common import HealthResponse
     from sahool_shared.utils import setup_logging, get_logger
 except ImportError:
     # Fallback for standalone operation
-    from pydantic import BaseModel as HealthResponse
     import logging
     def setup_logging(service_name: str): pass
     def get_logger(name: str): return logging.getLogger(name)

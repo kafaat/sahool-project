@@ -17,7 +17,6 @@ import sys
 sys.path.insert(0, "/app/libs-shared")
 
 try:
-    from sahool_shared.schemas.common import HealthResponse
     from sahool_shared.utils import setup_logging, get_logger
 except ImportError:
     import logging
