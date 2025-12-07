@@ -15,7 +15,7 @@ from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.responses import Response
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, validator
 from prometheus_client import Counter, Histogram, generate_latest
 from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -52,16 +52,35 @@ logger = get_logger(__name__)
 class LoginRequest(BaseModel):
     """Login request model."""
     email: EmailStr
-    password: str = Field(..., min_length=6)
+    password: str = Field(..., min_length=8)
 
 
 class RegisterRequest(BaseModel):
     """Registration request model."""
     email: EmailStr
-    password: str = Field(..., min_length=8)
+    password: str = Field(
+        ...,
+        min_length=12,
+        max_length=128,
+        description="Password must be 12-128 chars with uppercase, lowercase, number, and special char"
+    )
     full_name: str = Field(..., min_length=2, max_length=200)
     phone: Optional[str] = None
     tenant_name: Optional[str] = None  # If creating new tenant
+
+    @validator('password')
+    def validate_password_strength(cls, v):
+        """Validate password meets security requirements."""
+        import re
+        if not re.search(r'[A-Z]', v):
+            raise ValueError('Password must contain at least one uppercase letter')
+        if not re.search(r'[a-z]', v):
+            raise ValueError('Password must contain at least one lowercase letter')
+        if not re.search(r'\d', v):
+            raise ValueError('Password must contain at least one digit')
+        if not re.search(r'[!@#$%^&*(),.?":{}|<>]', v):
+            raise ValueError('Password must contain at least one special character (!@#$%^&*(),.?":{}|<>)')
+        return v
 
 
 class TokenResponse(BaseModel):
