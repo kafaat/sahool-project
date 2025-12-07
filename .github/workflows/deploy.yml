@@ -12,6 +12,7 @@ on:
       - '**.md'
       - 'docs/**'
   pull_request:
+    types: [opened, synchronize, reopened]
     branches: [master, main]
   workflow_dispatch:
     inputs:
@@ -37,23 +38,25 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      DATABASE_URL: postgresql://test_user:test_pass@localhost:5432/test_db
-      ASYNC_DATABASE_URL: postgresql+asyncpg://test_user:test_pass@localhost:5432/test_db
+      DATABASE_URL: postgresql://test_user:test_pass@localhost:5432/test_user
+      ASYNC_DATABASE_URL: postgresql+asyncpg://test_user:test_pass@localhost:5432/test_user
       REDIS_URL: redis://localhost:6379/0
       JWT_SECRET_KEY: test-secret-key-for-ci
       SAHOOL_ENV: test
+      ENV: test
+      PGUSER: test_user
 
     services:
       postgres:
         image: postgis/postgis:15-3.4-alpine
         env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: test_db
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_pass
+          POSTGRES_DB: test_user
         ports:
           - 5432:5432
         options: >-
-          --health-cmd pg_isready
+          --health-cmd "pg_isready -U test_user -d test_user"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
@@ -72,12 +75,15 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup PostgreSQL roles and users
+      - name: Setup PostgreSQL database and roles
         run: |
-          # Create test_user role and grant permissions
-          PGPASSWORD=postgres psql -h localhost -U postgres -d test_db -c "CREATE ROLE test_user WITH LOGIN SUPERUSER PASSWORD 'test_pass';" || true
-          PGPASSWORD=postgres psql -h localhost -U postgres -d test_db -c "CREATE ROLE root WITH LOGIN SUPERUSER PASSWORD 'root';" || true
-          PGPASSWORD=postgres psql -h localhost -U postgres -d test_db -c "GRANT ALL PRIVILEGES ON DATABASE test_db TO test_user;" || true
+          # Ensure test_user database exists
+          PGPASSWORD=test_pass psql -h localhost -U test_user -d test_user -c "SELECT 1;" || \
+          PGPASSWORD=test_pass createdb -h localhost -U test_user test_user || true
+          
+          # Create additional roles if needed
+          PGPASSWORD=test_pass psql -h localhost -U test_user -d test_user -c "CREATE ROLE root WITH LOGIN SUPERUSER PASSWORD 'root';" || true
+          PGPASSWORD=test_pass psql -h localhost -U test_user -d test_user -c "CREATE ROLE postgres WITH LOGIN SUPERUSER PASSWORD 'postgres';" || true
 
       - name: Set up Python
         uses: actions/setup-python@v5
