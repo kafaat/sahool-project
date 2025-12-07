@@ -40,7 +40,7 @@ def _get_service_app(service_name: str):
     service_path = PROJECT_ROOT / 'nano_services' / service_name
     
     # Verify service directory exists before attempting import
-    if not service_path.exists():
+    if not service_path.is_dir():
         pytest.skip(f"{service_name} service directory not found at {service_path}")
     
     # Add service path to sys.path for import
@@ -49,10 +49,11 @@ def _get_service_app(service_name: str):
         sys.path.insert(0, service_path_str)
     
     try:
-        # Clear import cache for app and app.main to avoid module shadowing
+        # Clear import cache for app modules to avoid module shadowing
         # This ensures each service app is imported fresh
-        sys.modules.pop("app", None)
-        sys.modules.pop("app.main", None)
+        modules_to_clear = [key for key in sys.modules if key.startswith('app')]
+        for module in modules_to_clear:
+            sys.modules.pop(module, None)
         
         # Import the FastAPI app from the service
         from app.main import app
