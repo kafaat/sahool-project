@@ -141,6 +141,13 @@ async def get_ndvi_timeline(
     if not start_date:
         start_date = end_date - timedelta(days=90)
 
+    # Validate date range
+    if start_date > end_date:
+        raise HTTPException(
+            status_code=400,
+            detail="تاريخ البداية يجب أن يكون قبل تاريخ النهاية"
+        )
+
     # Verify field access
     field_result = await db.execute(
         select(Field).where(
