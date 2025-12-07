@@ -26,10 +26,16 @@ app = FastAPI(
     redoc_url="/redoc"
 )
 
+import os
+
+# CORS Configuration - use specific origins in production
+CORS_ORIGINS = os.getenv("CORS_ORIGINS", "").split(",") if os.getenv("CORS_ORIGINS") else []
+CORS_ALLOW_CREDENTIALS = bool(CORS_ORIGINS)  # Only allow credentials with specific origins
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=CORS_ORIGINS if CORS_ORIGINS else ["*"],
+    allow_credentials=CORS_ALLOW_CREDENTIALS,  # False when using wildcard origins
     allow_methods=["*"],
     allow_headers=["*"],
 )

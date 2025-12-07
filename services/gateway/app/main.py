@@ -68,8 +68,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 token = auth_header.split(" ")[1]
                 payload = verify_token(token)
                 rate_key = f"user:{payload.sub}"
-            except Exception:
-                pass
+            except Exception as e:
+                # Token invalid/expired - fall back to IP-based rate limiting
+                logger.debug("token_verification_for_rate_limit_failed", error=str(e), client=client_ip)
 
         # Check rate limit
         try:
@@ -93,6 +94,11 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 )
         except Exception as e:
             logger.error("rate_limit_check_failed", error=str(e))
+            # Fail open with warning header - allows request but indicates rate limit check failed
+            # In production, consider failing closed (returning 503) for security
+            response = await call_next(request)
+            response.headers["X-Rate-Limit-Status"] = "unavailable"
+            return response
 
         response = await call_next(request)
         return response
@@ -164,13 +170,17 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# CORS Configuration - use specific origins in production
+CORS_ORIGINS = os.getenv("CORS_ORIGINS", "").split(",") if os.getenv("CORS_ORIGINS") else []
+CORS_ALLOW_CREDENTIALS = bool(CORS_ORIGINS)  # Only allow credentials with specific origins
+
 # Add middlewares
 app.add_middleware(RequestLoggingMiddleware)
 app.add_middleware(RateLimitMiddleware)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=CORS_ORIGINS if CORS_ORIGINS else ["*"],
+    allow_credentials=CORS_ALLOW_CREDENTIALS,  # False when using wildcard origins
     allow_methods=["*"],
     allow_headers=["*"],
 )
