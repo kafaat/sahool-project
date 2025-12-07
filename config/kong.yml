@@ -189,7 +189,7 @@ services:
   # Geo Service - خدمة الجغرافيا
   # ---------------------------------------------------------------------------
   - name: geo-service
-    url: http://geo-service:8080
+    url: http://geo-service:8000
     routes:
       - name: geo-routes
         paths:
