@@ -116,7 +116,7 @@ EOF
 
     chmod 600 .env
     log ".env created with secure random passwords"
-    warn "ADMIN PASSWORD: $ADMIN_PASS  |  SAVE THIS SECURELY!"
+    warn "A random ADMIN password was generated and stored in .env (ADMIN_SEED_PASSWORD). Please retrieve it securely from the .env file and store it in a secure secret manager."
 }
 
 # ===================== DATABASE SCHEMA =====================
