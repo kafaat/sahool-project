@@ -3,6 +3,7 @@
 خدمة بيانات الطقس الزراعي لليمن مع تكامل قاعدة البيانات
 """
 import os
+import logging
 from datetime import date, timedelta
 from typing import List, Optional
 from uuid import UUID
@@ -11,6 +12,10 @@ from fastapi import FastAPI, HTTPException, Depends, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Try to import from shared library, fallback to local models
 try:
@@ -227,8 +232,8 @@ async def get_region_weather(
                         pressure=float(weather.pressure) if weather.pressure else None,
                         source="database"
                     )
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"Database query failed for region {region_id}, falling back to mock data: {e}")
 
     # Fallback to mock data
     mock = generate_mock_weather(region_id, d)
@@ -264,8 +269,8 @@ async def get_field_weather(
                         rainfall=float(weather.rainfall) if weather.rainfall else 0,
                         source="database"
                     )
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"Database query failed for field {field_id}, falling back to mock data: {e}")
 
     # Fallback to mock
     mock = generate_mock_weather(1, d)

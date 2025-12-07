@@ -31,8 +31,8 @@ logger = structlog.get_logger(__name__)
 @dataclass
 class SecurityConfig:
     """Security configuration"""
-    # JWT Settings
-    jwt_secret: str = "sahool-yemen-secret-key-change-in-production"
+    # JWT Settings - MUST be set via environment variable in production
+    jwt_secret: str = None  # Will be loaded from JWT_SECRET_KEY env var
     jwt_algorithm: str = "HS256"
     jwt_expiry_minutes: int = 60
 
@@ -55,6 +55,17 @@ class SecurityConfig:
     api_keys: list = None
 
     def __post_init__(self):
+        import os
+        # Load JWT secret from environment - required in production
+        self.jwt_secret = os.getenv("JWT_SECRET_KEY")
+        if not self.jwt_secret:
+            if os.getenv("SAHOOL_ENV", "local") in ("production", "staging"):
+                raise ValueError("JWT_SECRET_KEY environment variable is required in production/staging")
+            # Only use fallback in local/development
+            self.jwt_secret = "dev-only-secret-not-for-production"
+            logger.warning("jwt_secret_fallback", message="Using development JWT secret - NOT FOR PRODUCTION")
+
+        # Initialize lists
         if self.cors_origins is None:
             self.cors_origins = ["*"]
         if self.api_keys is None:

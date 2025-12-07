@@ -69,26 +69,26 @@ header() {
 http_get() {
     local url="$1"
     local auth="${2:-}"
-    local headers=""
+    local -a curl_args=(-sf -X GET "$url" -H 'Content-Type: application/json' --max-time "$TIMEOUT")
 
     if [[ -n "${auth}" ]]; then
-        headers="-H 'Authorization: Bearer ${auth}'"
+        curl_args+=(-H "Authorization: Bearer ${auth}")
     fi
 
-    eval "curl -sf -X GET '${url}' ${headers} -H 'Content-Type: application/json' --max-time ${TIMEOUT}"
+    curl "${curl_args[@]}"
 }
 
 http_post() {
     local url="$1"
     local data="$2"
     local auth="${3:-}"
-    local headers=""
+    local -a curl_args=(-sf -X POST "$url" -H 'Content-Type: application/json' -d "$data" --max-time "$TIMEOUT")
 
     if [[ -n "${auth}" ]]; then
-        headers="-H 'Authorization: Bearer ${auth}'"
+        curl_args+=(-H "Authorization: Bearer ${auth}")
     fi
 
-    eval "curl -sf -X POST '${url}' ${headers} -H 'Content-Type: application/json' -d '${data}' --max-time ${TIMEOUT}"
+    curl "${curl_args[@]}"
 }
 
 # =============================================================================
