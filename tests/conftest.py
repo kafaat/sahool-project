@@ -8,6 +8,9 @@ import pytest
 import httpx
 from typing import Generator, Dict, Any
 
+# Collection ignore (migrated from pytest.ini as per pytest 7.0+ best practices)
+collect_ignore = ["setup.py"]
+
 
 # =============================================================================
 # Yemen Data Fixtures
