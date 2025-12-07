@@ -423,7 +423,7 @@ async function seedAdminUser() {
             await pool.query('INSERT INTO user_roles (user_id, role_id) VALUES ($1,$2) ON CONFLICT DO NOTHING', [userId, r.id]);
         }
 
-        console.log(`[AUTH-SERVICE] SEEDED ADMIN USER: username=admin | password=${password}`);
+        console.log(`[AUTH-SERVICE] SEEDED ADMIN USER: username=admin. Please rotate the password immediately.`);
     }
 }
 
