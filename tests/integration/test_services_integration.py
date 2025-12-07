@@ -5,6 +5,7 @@ Integration Tests for Sahool Yemen Services
 
 import pytest
 import sys
+import importlib.util
 from datetime import date
 from uuid import uuid4
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -27,14 +28,39 @@ def _get_service_app(service_name: str):
     Raises:
         pytest.skip: If service is not available
     """
-    service_path = str(BASE_DIR / 'nano_services' / service_name)
-    if service_path not in sys.path:
-        sys.path.insert(0, service_path)
+    service_path = BASE_DIR / 'nano_services' / service_name
+    main_path = service_path / 'app' / 'main.py'
+    
+    if not main_path.exists():
+        pytest.skip(f"Service {service_name} not found at {service_path}")
+    
+    # Add service path temporarily for import resolution
+    service_path_str = str(service_path)
+    path_added = False
+    if service_path_str not in sys.path:
+        sys.path.insert(0, service_path_str)
+        path_added = True
+    
     try:
-        from app.main import app
-        return app
-    except (ImportError, NameError, AttributeError) as e:
+        # Use importlib for safer dynamic import
+        spec = importlib.util.spec_from_file_location("app.main", main_path)
+        if spec is None or spec.loader is None:
+            pytest.skip(f"Service {service_name} module spec could not be loaded")
+        
+        module = importlib.util.module_from_spec(spec)
+        sys.modules['app.main'] = module
+        spec.loader.exec_module(module)
+        
+        if not hasattr(module, 'app'):
+            pytest.skip(f"Service {service_name} does not export 'app'")
+        
+        return module.app
+    except (ImportError, NameError, AttributeError, Exception) as e:
         pytest.skip(f"Service {service_name} not available: {e}")
+    finally:
+        # Clean up sys.path to avoid import pollution
+        if path_added and service_path_str in sys.path:
+            sys.path.remove(service_path_str)
 
 
 class TestWeatherServiceIntegration:
