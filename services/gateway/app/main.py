@@ -174,6 +174,14 @@ app = FastAPI(
 CORS_ORIGINS = [o.strip() for o in os.getenv("CORS_ORIGINS", "").split(",") if o.strip()]
 CORS_ALLOW_CREDENTIALS = bool(CORS_ORIGINS)  # Only allow credentials with specific origins
 
+# Startup warning for CORS configuration
+if not CORS_ORIGINS:
+    logger.warning(
+        "cors_not_configured",
+        message="CORS_ORIGINS not set - using wildcard '*' without credentials. "
+                "Authentication cookies will NOT work. Set CORS_ORIGINS for production."
+    )
+
 # Add middlewares
 app.add_middleware(RequestLoggingMiddleware)
 app.add_middleware(RateLimitMiddleware)
