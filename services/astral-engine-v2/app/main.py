@@ -8,7 +8,7 @@ Provides astronomical calculations for agriculture (moon phases, sun position, e
 import os
 from contextlib import asynccontextmanager
 from datetime import datetime
-from typing import List, Optional
+from typing import Optional
 
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -21,8 +21,12 @@ try:
     from sahool_shared.utils import setup_logging, get_logger
 except ImportError:
     import logging
-    def setup_logging(service_name: str): pass
-    def get_logger(name: str): return logging.getLogger(name)
+
+    def setup_logging(service_name: str):
+        pass
+
+    def get_logger(name: str):
+        return logging.getLogger(name)
 
 logger = get_logger(__name__)
 
@@ -40,7 +44,7 @@ class Location(BaseModel):
 class MoonPhase(BaseModel):
     """Moon phase information."""
     date: str
-    phase: str = Field(..., description="Phase: new, waxing_crescent, first_quarter, waxing_gibbous, full, waning_gibbous, last_quarter, waning_crescent")
+    phase: str = Field(..., description="Moon phase name")
     illumination: float = Field(..., ge=0, le=100)
     age_days: float
 

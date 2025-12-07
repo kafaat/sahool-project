@@ -21,8 +21,12 @@ try:
 except ImportError:
     # Fallback for standalone operation
     import logging
-    def setup_logging(service_name: str): pass
-    def get_logger(name: str): return logging.getLogger(name)
+
+    def setup_logging(service_name: str):
+        pass
+
+    def get_logger(name: str):
+        return logging.getLogger(name)
 
 logger = get_logger(__name__)
 

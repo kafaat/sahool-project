@@ -7,7 +7,7 @@ Handles geographic data processing and spatial operations.
 
 import os
 from contextlib import asynccontextmanager
-from typing import List, Optional, Dict, Any
+from typing import List
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -20,8 +20,12 @@ try:
     from sahool_shared.utils import setup_logging, get_logger
 except ImportError:
     import logging
-    def setup_logging(service_name: str): pass
-    def get_logger(name: str): return logging.getLogger(name)
+
+    def setup_logging(service_name: str):
+        pass
+
+    def get_logger(name: str):
+        return logging.getLogger(name)
 
 logger = get_logger(__name__)
 

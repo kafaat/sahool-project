@@ -20,8 +20,12 @@ try:
     from sahool_shared.utils import setup_logging, get_logger
 except ImportError:
     import logging
-    def setup_logging(service_name: str): pass
-    def get_logger(name: str): return logging.getLogger(name)
+
+    def setup_logging(service_name: str):
+        pass
+
+    def get_logger(name: str):
+        return logging.getLogger(name)
 
 logger = get_logger(__name__)
 
@@ -56,7 +60,7 @@ class OptimizationRequest(BaseModel):
     tasks: List[Task]
     resources: List[Resource]
     constraints: Dict[str, Any] = Field(default_factory=dict)
-    optimization_goal: str = Field(default="minimize_time", description="Goal: minimize_time, minimize_cost, balance_load")
+    optimization_goal: str = Field(default="minimize_time", description="Optimization goal")
 
 
 class ScheduledTask(BaseModel):

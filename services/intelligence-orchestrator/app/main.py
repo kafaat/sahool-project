@@ -7,7 +7,7 @@ Orchestrates AI/ML models for agricultural intelligence.
 
 import os
 from contextlib import asynccontextmanager
-from typing import List, Optional, Dict, Any
+from typing import List, Dict, Any
 
 from fastapi import FastAPI, HTTPException, Query, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
@@ -20,8 +20,12 @@ try:
     from sahool_shared.utils import setup_logging, get_logger
 except ImportError:
     import logging
-    def setup_logging(service_name: str): pass
-    def get_logger(name: str): return logging.getLogger(name)
+
+    def setup_logging(service_name: str):
+        pass
+
+    def get_logger(name: str):
+        return logging.getLogger(name)
 
 logger = get_logger(__name__)
 
@@ -32,7 +36,7 @@ logger = get_logger(__name__)
 
 class PredictionRequest(BaseModel):
     """AI prediction request."""
-    model_type: str = Field(..., description="Model: yield_prediction, disease_detection, pest_identification, irrigation_optimization")
+    model_type: str = Field(..., description="AI model type")
     field_id: str
     parameters: Dict[str, Any] = Field(default_factory=dict)
 
