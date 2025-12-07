@@ -6,21 +6,21 @@ Authentication and authorization service for the platform.
 """
 
 import os
+import sys
 from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import Optional
 from uuid import UUID
 
-from fastapi import FastAPI, Depends, HTTPException, status
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import Response
-from pydantic import BaseModel, EmailStr, Field, field_validator
-from prometheus_client import Counter, Histogram, generate_latest
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
-
-import sys
 sys.path.insert(0, "/app/libs-shared")
+
+from fastapi import FastAPI, Depends, HTTPException, status  # noqa: E402
+from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
+from fastapi.responses import Response  # noqa: E402
+from pydantic import BaseModel, EmailStr, Field, field_validator  # noqa: E402
+from prometheus_client import Counter, Histogram, generate_latest  # noqa: E402
+from sqlalchemy import select  # noqa: E402
+from sqlalchemy.ext.asyncio import AsyncSession  # noqa: E402
 
 from sahool_shared.models import User, Tenant  # noqa: E402
 from sahool_shared.models.user import UserRole, TenantPlan  # noqa: E402

@@ -35,7 +35,14 @@ jobs:
   test:
     name: Run Tests
     runs-on: ubuntu-latest
-    
+
+    env:
+      DATABASE_URL: postgresql://test_user:test_pass@localhost:5432/test_db
+      ASYNC_DATABASE_URL: postgresql+asyncpg://test_user:test_pass@localhost:5432/test_db
+      REDIS_URL: redis://localhost:6379/0
+      JWT_SECRET_KEY: test-secret-key-for-ci
+      SAHOOL_ENV: test
+
     services:
       postgres:
         image: postgis/postgis:15-3.4-alpine
@@ -109,11 +116,6 @@ jobs:
           fi
 
       - name: Run tests
-        env:
-          DATABASE_URL: postgresql://test_user:test_pass@localhost:5432/test_db
-          REDIS_URL: redis://localhost:6379/0
-          JWT_SECRET_KEY: test-secret-key
-          SAHOOL_ENV: local
         run: |
           pytest libs-shared/tests/ -v --cov=libs-shared --cov-report=xml
 

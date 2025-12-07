@@ -6,19 +6,19 @@ Central API Gateway for routing requests to microservices.
 """
 
 import os
+import sys
 import time
 from contextlib import asynccontextmanager
 from typing import Optional
 
-import httpx
-from fastapi import FastAPI, Request, Response, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
-from prometheus_client import Counter, Histogram, generate_latest
-from starlette.middleware.base import BaseHTTPMiddleware
-
-import sys
 sys.path.insert(0, "/app/libs-shared")
+
+import httpx  # noqa: E402
+from fastapi import FastAPI, Request, Response, HTTPException  # noqa: E402
+from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
+from fastapi.responses import JSONResponse  # noqa: E402
+from prometheus_client import Counter, Histogram, generate_latest  # noqa: E402
+from starlette.middleware.base import BaseHTTPMiddleware  # noqa: E402
 
 from sahool_shared.auth import verify_token  # noqa: E402
 from sahool_shared.cache import get_cache  # noqa: E402
