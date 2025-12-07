@@ -473,7 +473,7 @@ async def websocket_endpoint(
         async def ws_endpoint(websocket: WebSocket, client_id: str):
             await websocket_endpoint(websocket, client_id)
     """
-    connection = await connection_manager.connect(websocket, client_id, user_id)
+    await connection_manager.connect(websocket, client_id, user_id)
 
     try:
         while True:

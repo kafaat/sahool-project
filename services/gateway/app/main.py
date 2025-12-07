@@ -6,24 +6,24 @@ Central API Gateway for routing requests to microservices.
 """
 
 import os
+import sys
 import time
 from contextlib import asynccontextmanager
 from typing import Optional
 
-import httpx
-from fastapi import FastAPI, Request, Response, HTTPException, Depends
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
-from prometheus_client import Counter, Histogram, generate_latest
-from starlette.middleware.base import BaseHTTPMiddleware
-
-import sys
 sys.path.insert(0, "/app/libs-shared")
 
-from sahool_shared.auth import get_current_user, AuthenticatedUser, verify_token
-from sahool_shared.cache import get_cache, RedisCache
-from sahool_shared.utils import setup_logging, get_logger
-from sahool_shared.schemas.common import HealthResponse, ErrorResponse
+import httpx  # noqa: E402
+from fastapi import FastAPI, Request, Response, HTTPException  # noqa: E402
+from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
+from fastapi.responses import JSONResponse  # noqa: E402
+from prometheus_client import Counter, Histogram, generate_latest  # noqa: E402
+from starlette.middleware.base import BaseHTTPMiddleware  # noqa: E402
+
+from sahool_shared.auth import verify_token  # noqa: E402
+from sahool_shared.cache import get_cache  # noqa: E402
+from sahool_shared.utils import setup_logging, get_logger  # noqa: E402
+from sahool_shared.schemas.common import HealthResponse  # noqa: E402
 
 # Configuration
 SERVICE_ROUTES = {
@@ -68,8 +68,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 token = auth_header.split(" ")[1]
                 payload = verify_token(token)
                 rate_key = f"user:{payload.sub}"
-            except Exception:
-                pass
+            except Exception as e:
+                # Token invalid/expired - fall back to IP-based rate limiting
+                logger.debug("token_verification_for_rate_limit_failed", error=str(e), client=client_ip)
 
         # Check rate limit
         try:
@@ -93,6 +94,11 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 )
         except Exception as e:
             logger.error("rate_limit_check_failed", error=str(e))
+            # Fail open with warning header - allows request but indicates rate limit check failed
+            # In production, consider failing closed (returning 503) for security
+            response = await call_next(request)
+            response.headers["X-Rate-Limit-Status"] = "unavailable"
+            return response
 
         response = await call_next(request)
         return response
@@ -164,13 +170,25 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# CORS Configuration - use specific origins in production
+CORS_ORIGINS = [o.strip() for o in os.getenv("CORS_ORIGINS", "").split(",") if o.strip()]
+CORS_ALLOW_CREDENTIALS = bool(CORS_ORIGINS)  # Only allow credentials with specific origins
+
+# Startup warning for CORS configuration
+if not CORS_ORIGINS:
+    logger.warning(
+        "cors_not_configured",
+        message="CORS_ORIGINS not set - using wildcard '*' without credentials. "
+                "Authentication cookies will NOT work. Set CORS_ORIGINS for production."
+    )
+
 # Add middlewares
 app.add_middleware(RequestLoggingMiddleware)
 app.add_middleware(RateLimitMiddleware)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=CORS_ORIGINS if CORS_ORIGINS else ["*"],
+    allow_credentials=CORS_ALLOW_CREDENTIALS,  # False when using wildcard origins
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -312,4 +330,4 @@ async def shutdown():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8080)
+    uvicorn.run(app, host="0.0.0.0", port=8000)

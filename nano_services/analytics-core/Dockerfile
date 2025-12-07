@@ -3,6 +3,9 @@ FROM python:3.11-slim
 LABEL maintainer="Sahool Yemen <dev@sahool.ye>"
 LABEL description="Analytics Core Service - سهول اليمن"
 
+# Install curl for healthcheck
+RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
 # Install shared library first

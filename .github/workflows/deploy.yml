@@ -35,35 +35,49 @@ jobs:
   test:
     name: Run Tests
     runs-on: ubuntu-latest
-    
+
+    env:
+      DATABASE_URL: postgresql://test_user:test_pass@localhost:5432/test_db
+      ASYNC_DATABASE_URL: postgresql+asyncpg://test_user:test_pass@localhost:5432/test_db
+      REDIS_URL: redis://localhost:6379/0
+      JWT_SECRET_KEY: test-secret-key-for-ci
+      SAHOOL_ENV: test
+
     services:
       postgres:
         image: postgis/postgis:15-3.4-alpine
         env:
-          POSTGRES_USER: test_user
-          POSTGRES_PASSWORD: test_pass
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
           POSTGRES_DB: test_db
         ports:
           - 5432:5432
         options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-      
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
       redis:
         image: redis:7-alpine
         ports:
           - 6379:6379
         options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+          --health-cmd="redis-cli ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Setup PostgreSQL roles and users
+        run: |
+          # Create test_user role and grant permissions
+          PGPASSWORD=postgres psql -h localhost -U postgres -d test_db -c "CREATE ROLE test_user WITH LOGIN SUPERUSER PASSWORD 'test_pass';" || true
+          PGPASSWORD=postgres psql -h localhost -U postgres -d test_db -c "CREATE ROLE root WITH LOGIN SUPERUSER PASSWORD 'root';" || true
+          PGPASSWORD=postgres psql -h localhost -U postgres -d test_db -c "GRANT ALL PRIVILEGES ON DATABASE test_db TO test_user;" || true
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -78,13 +92,45 @@ jobs:
           pip install -r services/requirements.txt
           pip install pytest pytest-cov pytest-asyncio
 
-      - name: Run tests
-        env:
-          DATABASE_URL: postgresql://test_user:test_pass@localhost:5432/test_db
-          REDIS_URL: redis://localhost:6379/0
-          JWT_SECRET_KEY: test-secret-key
+      - name: Install linting and security tools
         run: |
-          pytest libs-shared/tests/ -v --cov=libs-shared
+          pip install flake8 bandit safety mypy
+
+      - name: Run linting
+        run: |
+          flake8 services/ nano_services/ field_suite_service/ --max-line-length=120 --ignore=E501,W503
+
+      - name: Run security scan (bandit)
+        run: |
+          bandit -r services/ nano_services/ field_suite_service/ -ll -ii --skip B101
+
+      - name: Check dependencies for vulnerabilities
+        run: |
+          # Check for vulnerabilities - fail on high/critical severity
+          safety check --full-report --output json > safety_report.json || true
+          # Parse and check for critical vulnerabilities
+          if grep -q '"severity": "critical"' safety_report.json 2>/dev/null; then
+            echo "::error::Critical vulnerabilities found in dependencies!"
+            cat safety_report.json
+            exit 1
+          elif grep -q '"severity": "high"' safety_report.json 2>/dev/null; then
+            echo "::error::High severity vulnerabilities found in dependencies!"
+            cat safety_report.json
+            exit 1
+          else
+            echo "No critical/high vulnerabilities found"
+            safety check --full-report || echo "::warning::Some low/medium vulnerabilities exist"
+          fi
+
+      - name: Run tests
+        run: |
+          pytest libs-shared/tests/ -v --cov=libs-shared --cov-report=xml
+
+      - name: Upload coverage report
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./coverage.xml
+          fail_ci_if_error: false
 
   # ---------------------------------------------------------------------------
   # Build Job
@@ -101,7 +147,16 @@ jobs:
 
     strategy:
       matrix:
-        service: [weather-core, geo-core, analytics-core, advisor-core, imagery-core, query-core]
+        service:
+          - weather-core
+          - geo-core
+          - analytics-core
+          - advisor-core
+          - imagery-core
+          - query-core
+          - gateway
+          - auth-service
+          - field-suite
 
     steps:
       - name: Checkout code
@@ -139,32 +194,33 @@ jobs:
           cache-to: type=gha,mode=max
 
   # ---------------------------------------------------------------------------
-  # Deploy Staging
+  # Deploy Staging (Optional - requires secrets configuration)
   # ---------------------------------------------------------------------------
   deploy-staging:
     name: Deploy to Staging
     runs-on: ubuntu-latest
     needs: build
-    if: |
-      (github.ref == 'refs/heads/master' || github.event.inputs.environment == 'staging')
+    if: github.ref == 'refs/heads/master' || github.event.inputs.environment == 'staging'
     environment: staging
+    # Removed continue-on-error to ensure deployment failures are visible
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Check deployment secrets
+      - name: Check if secrets are configured
         id: check-secrets
         run: |
-          if [ -z "${{ secrets.STAGING_HOST }}" ] || [ -z "${{ secrets.STAGING_USER }}" ] || [ -z "${{ secrets.STAGING_SSH_KEY }}" ]; then
-            echo "skip=true" >> $GITHUB_OUTPUT
-            echo "⚠️ Staging deployment skipped: secrets not configured"
+          if [ -z "${{ secrets.STAGING_HOST }}" ]; then
+            echo "configured=false" >> $GITHUB_OUTPUT
+            echo "::warning::Staging deployment skipped - STAGING_HOST secret not configured"
           else
-            echo "skip=false" >> $GITHUB_OUTPUT
+            echo "configured=true" >> $GITHUB_OUTPUT
           fi
 
+      - name: Checkout code
+        if: steps.check-secrets.outputs.configured == 'true'
+        uses: actions/checkout@v4
+
       - name: Deploy to Staging Server
-        if: steps.check-secrets.outputs.skip != 'true'
+        if: steps.check-secrets.outputs.configured == 'true'
         uses: appleboy/ssh-action@v1.0.0
         with:
           host: ${{ secrets.STAGING_HOST }}
@@ -175,13 +231,25 @@ jobs:
             git pull origin master
             ./scripts/deploy/deploy.sh staging deploy
 
-      - name: Deployment skipped notice
-        if: steps.check-secrets.outputs.skip == 'true'
+      - name: Verify Staging Health
+        if: steps.check-secrets.outputs.configured == 'true'
         run: |
-          echo "::notice::Staging deployment skipped - configure STAGING_HOST, STAGING_USER, and STAGING_SSH_KEY secrets to enable"
+          echo "Waiting for services to start..."
+          sleep 30
+          # Health check with retry
+          for i in {1..5}; do
+            if curl -sf "https://${{ secrets.STAGING_HOST }}/health" > /dev/null; then
+              echo "✅ Staging health check passed"
+              exit 0
+            fi
+            echo "Retry $i/5..."
+            sleep 10
+          done
+          echo "❌ Staging health check failed"
+          exit 1
 
   # ---------------------------------------------------------------------------
-  # Deploy Production
+  # Deploy Production (Optional - requires secrets configuration)
   # ---------------------------------------------------------------------------
   deploy-production:
     name: Deploy to Production
@@ -189,23 +257,25 @@ jobs:
     needs: [build, deploy-staging]
     if: github.event.inputs.environment == 'production'
     environment: production
+    # Removed continue-on-error to ensure deployment failures are visible
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Check deployment secrets
+      - name: Check if secrets are configured
         id: check-secrets
         run: |
-          if [ -z "${{ secrets.PRODUCTION_HOST }}" ] || [ -z "${{ secrets.PRODUCTION_USER }}" ] || [ -z "${{ secrets.PRODUCTION_SSH_KEY }}" ]; then
-            echo "skip=true" >> $GITHUB_OUTPUT
-            echo "⚠️ Production deployment skipped: secrets not configured"
+          if [ -z "${{ secrets.PRODUCTION_HOST }}" ]; then
+            echo "configured=false" >> $GITHUB_OUTPUT
+            echo "::warning::Production deployment skipped - PRODUCTION_HOST secret not configured"
           else
-            echo "skip=false" >> $GITHUB_OUTPUT
+            echo "configured=true" >> $GITHUB_OUTPUT
           fi
 
+      - name: Checkout code
+        if: steps.check-secrets.outputs.configured == 'true'
+        uses: actions/checkout@v4
+
       - name: Deploy to Production Server
-        if: steps.check-secrets.outputs.skip != 'true'
+        if: steps.check-secrets.outputs.configured == 'true'
         uses: appleboy/ssh-action@v1.0.0
         with:
           host: ${{ secrets.PRODUCTION_HOST }}
@@ -216,17 +286,31 @@ jobs:
             git pull origin master
             ./scripts/deploy/deploy.sh production deploy
 
+      - name: Verify Production Health
+        if: steps.check-secrets.outputs.configured == 'true'
+        run: |
+          echo "Waiting for services to start..."
+          sleep 30
+          # Health check with retry
+          for i in {1..5}; do
+            if curl -sf "https://${{ secrets.PRODUCTION_HOST }}/health" > /dev/null; then
+              echo "✅ Production health check passed"
+              exit 0
+            fi
+            echo "Retry $i/5..."
+            sleep 10
+          done
+          echo "❌ Production health check failed - initiating rollback notification"
+          exit 1
+
       - name: Notify Success
-        if: success() && steps.check-secrets.outputs.skip != 'true'
+        if: success() && steps.check-secrets.outputs.configured == 'true'
         run: |
           echo "✅ Production deployment successful!"
+          # Add Slack/Email notification here if configured
 
       - name: Notify Failure
-        if: failure() && steps.check-secrets.outputs.skip != 'true'
+        if: failure() && steps.check-secrets.outputs.configured == 'true'
         run: |
           echo "❌ Production deployment failed!"
-
-      - name: Deployment skipped notice
-        if: steps.check-secrets.outputs.skip == 'true'
-        run: |
-          echo "::notice::Production deployment skipped - configure PRODUCTION_HOST, PRODUCTION_USER, and PRODUCTION_SSH_KEY secrets to enable"
+          # Add Slack/Email notification here if configured
