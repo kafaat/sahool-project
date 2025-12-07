@@ -389,7 +389,7 @@ do_full() {
         source "$PROJECT_DIR/.env"
         echo -e "${CYAN}Login Credentials:${NC}"
         echo "  Username: admin"
-        echo -e "  Password: ${YELLOW}$ADMIN_SEED_PASSWORD${NC}"
+        echo -e "  Password: [REDACTED] (see .env file for details)"
     fi
 
     echo -e "\n${CYAN}Next Steps:${NC}"
