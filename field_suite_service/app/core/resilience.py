@@ -7,11 +7,10 @@ Circuit Breaker, Retry Logic, and Fault Tolerance
 import asyncio
 import time
 from enum import Enum
-from typing import TypeVar, Callable, Any, Optional
+from typing import TypeVar, Callable, Optional
 from dataclasses import dataclass, field
 from functools import wraps
 import structlog
-from collections import deque
 
 logger = structlog.get_logger(__name__)
 
@@ -20,9 +19,9 @@ T = TypeVar('T')
 
 class CircuitState(Enum):
     """Circuit breaker states"""
-    CLOSED = "closed"       # Normal operation
-    OPEN = "open"           # Failing, reject requests
-    HALF_OPEN = "half_open" # Testing if service recovered
+    CLOSED = "closed"  # Normal operation
+    OPEN = "open"  # Failing, reject requests
+    HALF_OPEN = "half_open"  # Testing if service recovered
 
 
 @dataclass
@@ -281,7 +280,7 @@ def with_circuit_breaker(
                 result = await func(*args, **kwargs)
                 await cb.record_success()
                 return result
-            except Exception as e:
+            except Exception:
                 await cb.record_failure()
                 raise
 

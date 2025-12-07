@@ -21,6 +21,7 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass
 class PoolMetrics:
     """Database pool metrics"""

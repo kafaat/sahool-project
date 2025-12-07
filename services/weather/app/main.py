@@ -10,7 +10,7 @@ from datetime import date, timedelta
 from typing import Optional
 from uuid import UUID
 
-from fastapi import FastAPI, Depends, HTTPException, Query
+from fastapi import FastAPI, Depends, HTTPException
 from fastapi.responses import Response
 from prometheus_client import Counter, Histogram, generate_latest
 from sqlalchemy import select, and_
@@ -19,13 +19,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import sys
 sys.path.insert(0, "/app/libs-shared")
 
-from sahool_shared.models import WeatherData, Field, Region
-from sahool_shared.schemas.weather import WeatherResponse, WeatherForecast, WeatherData as WeatherDataSchema
-from sahool_shared.schemas.common import HealthResponse, ErrorResponse
-from sahool_shared.auth import get_current_user, AuthenticatedUser
-from sahool_shared.utils import get_db, setup_logging, get_logger
-from sahool_shared.cache import cached, get_cache
-from sahool_shared.events import publish_event, WeatherUpdatedEvent
+from sahool_shared.models import WeatherData, Field, Region  # noqa: E402
+from sahool_shared.schemas.weather import (  # noqa: E402
+    WeatherForecast, WeatherData as WeatherDataSchema
+)
+from sahool_shared.schemas.common import HealthResponse, ErrorResponse  # noqa: E402
+from sahool_shared.auth import get_current_user, AuthenticatedUser  # noqa: E402
+from sahool_shared.utils import get_db, setup_logging, get_logger  # noqa: E402
+from sahool_shared.cache import cached  # noqa: E402
+from sahool_shared.events import publish_event, WeatherUpdatedEvent  # noqa: E402
 
 # Metrics
 REQUEST_COUNT = Counter("weather_requests_total", "Total requests", ["method", "endpoint", "status"])

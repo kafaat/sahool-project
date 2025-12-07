@@ -13,19 +13,18 @@ from uuid import UUID
 
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.responses import Response
 from pydantic import BaseModel, EmailStr, Field, field_validator
 from prometheus_client import Counter, Histogram, generate_latest
-from sqlalchemy import select, and_
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import sys
 sys.path.insert(0, "/app/libs-shared")
 
-from sahool_shared.models import User, Tenant
-from sahool_shared.models.user import UserRole, TenantPlan
-from sahool_shared.auth import (
+from sahool_shared.models import User, Tenant  # noqa: E402
+from sahool_shared.models.user import UserRole, TenantPlan  # noqa: E402
+from sahool_shared.auth import (  # noqa: E402
     hash_password,
     verify_password,
     create_access_token,
@@ -34,8 +33,8 @@ from sahool_shared.auth import (
     get_current_user,
     AuthenticatedUser,
 )
-from sahool_shared.utils import get_db, setup_logging, get_logger
-from sahool_shared.schemas.common import HealthResponse
+from sahool_shared.utils import get_db, setup_logging, get_logger  # noqa: E402
+from sahool_shared.schemas.common import HealthResponse  # noqa: E402
 
 # Metrics
 REQUEST_COUNT = Counter("auth_requests_total", "Total requests", ["endpoint", "status"])
@@ -362,7 +361,7 @@ async def refresh_token(
     with REQUEST_LATENCY.labels(endpoint="refresh").time():
         try:
             payload = verify_token(request.refresh_token, "refresh")
-        except Exception as e:
+        except Exception:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="توكن التجديد غير صالح",

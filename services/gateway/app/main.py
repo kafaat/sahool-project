@@ -11,7 +11,7 @@ from contextlib import asynccontextmanager
 from typing import Optional
 
 import httpx
-from fastapi import FastAPI, Request, Response, HTTPException, Depends
+from fastapi import FastAPI, Request, Response, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from prometheus_client import Counter, Histogram, generate_latest
@@ -20,10 +20,10 @@ from starlette.middleware.base import BaseHTTPMiddleware
 import sys
 sys.path.insert(0, "/app/libs-shared")
 
-from sahool_shared.auth import get_current_user, AuthenticatedUser, verify_token
-from sahool_shared.cache import get_cache, RedisCache
-from sahool_shared.utils import setup_logging, get_logger
-from sahool_shared.schemas.common import HealthResponse, ErrorResponse
+from sahool_shared.auth import verify_token  # noqa: E402
+from sahool_shared.cache import get_cache  # noqa: E402
+from sahool_shared.utils import setup_logging, get_logger  # noqa: E402
+from sahool_shared.schemas.common import HealthResponse  # noqa: E402
 
 # Configuration
 SERVICE_ROUTES = {
