@@ -9,7 +9,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf 
 WORKDIR /app
 
 # Install shared library first
+# NOTE: The Docker build context MUST be set to the project root so that 'libs-shared' is available.
 COPY libs-shared ./libs-shared
+# Fail early if libs-shared is missing
+RUN test -d ./libs-shared || (echo "ERROR: 'libs-shared' directory not found in build context. Please set build context to project root." && exit 1)
 RUN pip install --no-cache-dir ./libs-shared
 
 # Install service dependencies
