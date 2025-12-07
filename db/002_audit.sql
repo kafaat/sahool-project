@@ -392,9 +392,50 @@ VALUES
 ON CONFLICT DO NOTHING;
 
 -- =============================================================================
--- Grants
+-- Roles and Grants (Least Privilege Principle)
 -- =============================================================================
-GRANT SELECT, INSERT ON sahool.audit_logs TO PUBLIC;
-GRANT SELECT, INSERT, UPDATE ON sahool.gdpr_requests TO PUBLIC;
-GRANT SELECT ON sahool.retention_policies TO PUBLIC;
-GRANT SELECT, INSERT ON sahool.security_events TO PUBLIC;
+
+-- Create roles if they don't exist
+DO $$
+BEGIN
+    -- Auditor role: read-only access to audit data
+    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'sahool_auditor') THEN
+        CREATE ROLE sahool_auditor;
+    END IF;
+
+    -- Admin role: full access to audit management
+    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'sahool_admin') THEN
+        CREATE ROLE sahool_admin;
+    END IF;
+
+    -- App role: application service account
+    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'sahool_app') THEN
+        CREATE ROLE sahool_app;
+    END IF;
+END
+$$;
+
+-- Auditor role: read-only access to audit logs and security events
+GRANT SELECT ON sahool.audit_logs TO sahool_auditor;
+GRANT SELECT ON sahool.security_events TO sahool_auditor;
+GRANT SELECT ON sahool.gdpr_requests TO sahool_auditor;
+GRANT SELECT ON sahool.retention_policies TO sahool_auditor;
+
+-- Admin role: full management access
+GRANT SELECT, INSERT, UPDATE, DELETE ON sahool.audit_logs TO sahool_admin;
+GRANT SELECT, INSERT, UPDATE, DELETE ON sahool.gdpr_requests TO sahool_admin;
+GRANT SELECT, INSERT, UPDATE, DELETE ON sahool.retention_policies TO sahool_admin;
+GRANT SELECT, INSERT, UPDATE, DELETE ON sahool.security_events TO sahool_admin;
+
+-- App role: insert audit logs and security events (write-only for audit trail)
+GRANT INSERT ON sahool.audit_logs TO sahool_app;
+GRANT INSERT ON sahool.security_events TO sahool_app;
+GRANT SELECT, INSERT, UPDATE ON sahool.gdpr_requests TO sahool_app;
+GRANT SELECT ON sahool.retention_policies TO sahool_app;
+
+-- Grant execute on helper functions
+GRANT EXECUTE ON FUNCTION log_security_event TO sahool_app, sahool_admin;
+GRANT EXECUTE ON FUNCTION get_audit_trail TO sahool_auditor, sahool_admin, sahool_app;
+GRANT EXECUTE ON FUNCTION export_user_data TO sahool_admin;
+GRANT EXECUTE ON FUNCTION anonymize_user TO sahool_admin;
+GRANT EXECUTE ON FUNCTION cleanup_old_audit_logs TO sahool_admin;

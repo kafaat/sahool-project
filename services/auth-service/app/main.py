@@ -15,7 +15,7 @@ from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.responses import Response
-from pydantic import BaseModel, EmailStr, Field, validator
+from pydantic import BaseModel, EmailStr, Field, field_validator
 from prometheus_client import Counter, Histogram, generate_latest
 from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -68,8 +68,9 @@ class RegisterRequest(BaseModel):
     phone: Optional[str] = None
     tenant_name: Optional[str] = None  # If creating new tenant
 
-    @validator('password')
-    def validate_password_strength(cls, v):
+    @field_validator('password')
+    @classmethod
+    def validate_password_strength(cls, v: str) -> str:
         """Validate password meets security requirements."""
         import re
         if not re.search(r'[A-Z]', v):
@@ -149,7 +150,7 @@ class CreateTenantRequest(BaseModel):
 # =============================================================================
 
 # CORS Configuration
-CORS_ORIGINS = os.getenv("CORS_ORIGINS", "").split(",") if os.getenv("CORS_ORIGINS") else []
+CORS_ORIGINS = [o.strip() for o in os.getenv("CORS_ORIGINS", "").split(",") if o.strip()]
 CORS_ALLOW_CREDENTIALS = bool(CORS_ORIGINS)
 
 

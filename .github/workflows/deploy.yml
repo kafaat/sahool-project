@@ -92,7 +92,21 @@ jobs:
 
       - name: Check dependencies for vulnerabilities
         run: |
-          safety check --full-report || echo "::warning::Some dependencies have known vulnerabilities"
+          # Check for vulnerabilities - fail on high/critical severity
+          safety check --full-report --output json > safety_report.json || true
+          # Parse and check for critical vulnerabilities
+          if grep -q '"severity": "critical"' safety_report.json 2>/dev/null; then
+            echo "::error::Critical vulnerabilities found in dependencies!"
+            cat safety_report.json
+            exit 1
+          elif grep -q '"severity": "high"' safety_report.json 2>/dev/null; then
+            echo "::error::High severity vulnerabilities found in dependencies!"
+            cat safety_report.json
+            exit 1
+          else
+            echo "No critical/high vulnerabilities found"
+            safety check --full-report || echo "::warning::Some low/medium vulnerabilities exist"
+          fi
 
       - name: Run tests
         env:
