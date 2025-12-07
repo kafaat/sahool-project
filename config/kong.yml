@@ -1,0 +1,349 @@
+# =============================================================================
+# SAHOOL Platform v6.8.4 - Kong API Gateway Configuration
+# منصة سهول - تكوين بوابة API
+# =============================================================================
+
+_format_version: "3.0"
+_transform: true
+
+# =============================================================================
+# Services Definition
+# =============================================================================
+
+services:
+  # ---------------------------------------------------------------------------
+  # Auth Service - خدمة المصادقة
+  # ---------------------------------------------------------------------------
+  - name: auth-service
+    url: http://auth-service:8000
+    routes:
+      - name: auth-routes
+        paths:
+          - /api/v1/auth
+        strip_path: false
+        methods:
+          - GET
+          - POST
+          - PUT
+          - PATCH
+          - DELETE
+          - OPTIONS
+
+  - name: users-service
+    url: http://auth-service:8000
+    routes:
+      - name: users-routes
+        paths:
+          - /api/v1/users
+        strip_path: false
+        methods:
+          - GET
+          - POST
+          - PUT
+          - PATCH
+          - DELETE
+          - OPTIONS
+
+  - name: tenants-service
+    url: http://auth-service:8000
+    routes:
+      - name: tenants-routes
+        paths:
+          - /api/v1/tenants
+        strip_path: false
+        methods:
+          - GET
+          - POST
+          - PUT
+          - PATCH
+          - DELETE
+          - OPTIONS
+
+  # ---------------------------------------------------------------------------
+  # Weather Service - خدمة الطقس
+  # ---------------------------------------------------------------------------
+  - name: weather-service
+    url: http://weather-service:8000
+    routes:
+      - name: weather-routes
+        paths:
+          - /api/v1/weather
+        strip_path: false
+        methods:
+          - GET
+          - POST
+          - OPTIONS
+
+  # ---------------------------------------------------------------------------
+  # NDVI Service - خدمة NDVI
+  # ---------------------------------------------------------------------------
+  - name: ndvi-service
+    url: http://ndvi-service:8000
+    routes:
+      - name: ndvi-routes
+        paths:
+          - /api/v1/ndvi
+        strip_path: false
+        methods:
+          - GET
+          - POST
+          - OPTIONS
+
+  # ---------------------------------------------------------------------------
+  # NDVI Engine (AI) - محرك NDVI بالذكاء الاصطناعي
+  # ---------------------------------------------------------------------------
+  - name: ndvi-engine
+    url: http://ndvi-engine:3000
+    routes:
+      - name: ndvi-engine-routes
+        paths:
+          - /api/v1/ndvi-engine
+          - /api/v1/predict
+        strip_path: false
+        methods:
+          - GET
+          - POST
+          - OPTIONS
+
+  # ---------------------------------------------------------------------------
+  # Advisor Service - خدمة المستشار
+  # ---------------------------------------------------------------------------
+  - name: advisor-service
+    url: http://advisor-service:8000
+    routes:
+      - name: advisor-routes
+        paths:
+          - /api/v1/advisor
+        strip_path: false
+        methods:
+          - GET
+          - POST
+          - OPTIONS
+
+  # ---------------------------------------------------------------------------
+  # Query Service - خدمة الاستعلامات
+  # ---------------------------------------------------------------------------
+  - name: query-service
+    url: http://query-service:8000
+    routes:
+      - name: query-routes
+        paths:
+          - /api/v1/query
+        strip_path: false
+        methods:
+          - GET
+          - POST
+          - OPTIONS
+
+  # ---------------------------------------------------------------------------
+  # Fields Service - خدمة الحقول
+  # ---------------------------------------------------------------------------
+  - name: fields-service
+    url: http://fields-service:8000
+    routes:
+      - name: fields-routes
+        paths:
+          - /api/v1/fields
+        strip_path: false
+        methods:
+          - GET
+          - POST
+          - PUT
+          - PATCH
+          - DELETE
+          - OPTIONS
+
+  # ---------------------------------------------------------------------------
+  # Alerts Service - خدمة التنبيهات
+  # ---------------------------------------------------------------------------
+  - name: alerts-service
+    url: http://alerts-service:8000
+    routes:
+      - name: alerts-routes
+        paths:
+          - /api/v1/alerts
+        strip_path: false
+        methods:
+          - GET
+          - POST
+          - PUT
+          - DELETE
+          - OPTIONS
+
+  # ---------------------------------------------------------------------------
+  # Analytics Service - خدمة التحليلات
+  # ---------------------------------------------------------------------------
+  - name: analytics-service
+    url: http://analytics-service:8000
+    routes:
+      - name: analytics-routes
+        paths:
+          - /api/v1/analytics
+        strip_path: false
+        methods:
+          - GET
+          - POST
+          - OPTIONS
+
+  # ---------------------------------------------------------------------------
+  # Geo Service - خدمة الجغرافيا
+  # ---------------------------------------------------------------------------
+  - name: geo-service
+    url: http://geo-service:8080
+    routes:
+      - name: geo-routes
+        paths:
+          - /api/v1/geo
+          - /api/v1/regions
+        strip_path: false
+        methods:
+          - GET
+          - POST
+          - OPTIONS
+
+# =============================================================================
+# Global Plugins
+# =============================================================================
+
+plugins:
+  # ---------------------------------------------------------------------------
+  # CORS - Cross-Origin Resource Sharing
+  # ---------------------------------------------------------------------------
+  - name: cors
+    config:
+      origins:
+        - "*"
+      methods:
+        - GET
+        - POST
+        - PUT
+        - PATCH
+        - DELETE
+        - OPTIONS
+      headers:
+        - Accept
+        - Accept-Version
+        - Content-Length
+        - Content-MD5
+        - Content-Type
+        - Date
+        - Authorization
+        - X-Request-ID
+        - X-Tenant-ID
+      exposed_headers:
+        - X-Request-ID
+        - X-Response-Time
+        - X-Rate-Limit-Remaining
+      credentials: false
+      max_age: 3600
+      preflight_continue: false
+
+  # ---------------------------------------------------------------------------
+  # Rate Limiting - تحديد معدل الطلبات
+  # ---------------------------------------------------------------------------
+  - name: rate-limiting
+    config:
+      minute: 100
+      hour: 1000
+      policy: local
+      fault_tolerant: true
+      hide_client_headers: false
+      redis_timeout: 2000
+
+  # ---------------------------------------------------------------------------
+  # Request Size Limiting
+  # ---------------------------------------------------------------------------
+  - name: request-size-limiting
+    config:
+      allowed_payload_size: 10  # MB
+      size_unit: megabytes
+      require_content_length: false
+
+  # ---------------------------------------------------------------------------
+  # Response Transformer - Add security headers
+  # ---------------------------------------------------------------------------
+  - name: response-transformer
+    config:
+      add:
+        headers:
+          - "X-Content-Type-Options: nosniff"
+          - "X-Frame-Options: DENY"
+          - "X-XSS-Protection: 1; mode=block"
+          - "Strict-Transport-Security: max-age=31536000; includeSubDomains"
+          - "Content-Security-Policy: default-src 'self'"
+
+  # ---------------------------------------------------------------------------
+  # Request Transformer - Add tracing headers
+  # ---------------------------------------------------------------------------
+  - name: request-transformer
+    config:
+      add:
+        headers:
+          - "X-Forwarded-Proto: https"
+
+  # ---------------------------------------------------------------------------
+  # Prometheus Metrics
+  # ---------------------------------------------------------------------------
+  - name: prometheus
+    config:
+      per_consumer: true
+      status_code_metrics: true
+      latency_metrics: true
+      bandwidth_metrics: true
+      upstream_health_metrics: true
+
+  # ---------------------------------------------------------------------------
+  # File Logging
+  # ---------------------------------------------------------------------------
+  - name: file-log
+    config:
+      path: /tmp/kong-access.log
+      reopen: true
+
+# =============================================================================
+# Consumers (API Users)
+# =============================================================================
+
+consumers:
+  - username: anonymous
+    custom_id: anonymous-user
+
+  - username: mobile-app
+    custom_id: sahool-mobile-app
+
+  - username: web-app
+    custom_id: sahool-web-app
+
+  - username: admin
+    custom_id: sahool-admin
+
+# =============================================================================
+# Upstreams (Load Balancing)
+# =============================================================================
+
+upstreams:
+  - name: auth-upstream
+    targets:
+      - target: auth-service:8000
+        weight: 100
+    healthchecks:
+      active:
+        healthy:
+          interval: 10
+          successes: 2
+        unhealthy:
+          interval: 10
+          http_failures: 3
+
+  - name: ndvi-upstream
+    targets:
+      - target: ndvi-service:8000
+        weight: 100
+    healthchecks:
+      active:
+        healthy:
+          interval: 10
+          successes: 2
+        unhealthy:
+          interval: 10
+          http_failures: 3
