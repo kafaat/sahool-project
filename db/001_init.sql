@@ -375,8 +375,45 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- =============================================================================
--- Grants
+-- Roles and Grants (Least Privilege Principle)
 -- =============================================================================
-GRANT USAGE ON SCHEMA sahool TO PUBLIC;
-GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA sahool TO PUBLIC;
-GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA sahool TO PUBLIC;
+
+-- Create application roles if they don't exist
+DO $$
+BEGIN
+    -- Application role: for the main application service account
+    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'sahool_app') THEN
+        CREATE ROLE sahool_app;
+    END IF;
+
+    -- Admin role: for administrative operations
+    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'sahool_admin') THEN
+        CREATE ROLE sahool_admin;
+    END IF;
+
+    -- Read-only role: for reporting and analytics
+    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'sahool_readonly') THEN
+        CREATE ROLE sahool_readonly;
+    END IF;
+END
+$$;
+
+-- Schema access
+GRANT USAGE ON SCHEMA sahool TO sahool_app, sahool_admin, sahool_readonly;
+
+-- Application role: full CRUD on all tables (for the application)
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA sahool TO sahool_app;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA sahool TO sahool_app;
+
+-- Admin role: full access including DDL operations
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA sahool TO sahool_admin;
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA sahool TO sahool_admin;
+
+-- Read-only role: SELECT only (for reporting/analytics)
+GRANT SELECT ON ALL TABLES IN SCHEMA sahool TO sahool_readonly;
+
+-- Set default privileges for future tables
+ALTER DEFAULT PRIVILEGES IN SCHEMA sahool GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO sahool_app;
+ALTER DEFAULT PRIVILEGES IN SCHEMA sahool GRANT USAGE, SELECT ON SEQUENCES TO sahool_app;
+ALTER DEFAULT PRIVILEGES IN SCHEMA sahool GRANT ALL PRIVILEGES ON TABLES TO sahool_admin;
+ALTER DEFAULT PRIVILEGES IN SCHEMA sahool GRANT SELECT ON TABLES TO sahool_readonly;
