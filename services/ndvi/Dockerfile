@@ -8,18 +8,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Install dependencies
-COPY requirements.txt .
+COPY services/ndvi/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy shared library
-COPY ../../libs-shared /app/libs-shared
+# Copy shared library and install
+COPY libs-shared /app/libs-shared
 RUN pip install -e /app/libs-shared
 
 # Copy application
-COPY app /app/app
-
-# Create __init__.py if missing
-RUN touch /app/app/__init__.py
+COPY services/ndvi/app /app/app
 
 # Expose port
 EXPOSE 8000
