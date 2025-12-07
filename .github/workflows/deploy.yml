@@ -35,13 +35,20 @@ jobs:
   test:
     name: Run Tests
     runs-on: ubuntu-latest
-    
+
+    env:
+      DATABASE_URL: postgresql://test_user:test_pass@localhost:5432/test_db
+      ASYNC_DATABASE_URL: postgresql+asyncpg://test_user:test_pass@localhost:5432/test_db
+      REDIS_URL: redis://localhost:6379/0
+      JWT_SECRET_KEY: test-secret-key-for-ci
+      SAHOOL_ENV: test
+
     services:
       postgres:
         image: postgis/postgis:15-3.4-alpine
         env:
-          POSTGRES_USER: test_user
-          POSTGRES_PASSWORD: test_pass
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
           POSTGRES_DB: test_db
         ports:
           - 5432:5432
@@ -50,7 +57,7 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
-      
+
       redis:
         image: redis:7-alpine
         ports:
@@ -64,6 +71,13 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Setup PostgreSQL roles and users
+        run: |
+          # Create test_user role and grant permissions
+          PGPASSWORD=postgres psql -h localhost -U postgres -d test_db -c "CREATE ROLE test_user WITH LOGIN SUPERUSER PASSWORD 'test_pass';" || true
+          PGPASSWORD=postgres psql -h localhost -U postgres -d test_db -c "CREATE ROLE root WITH LOGIN SUPERUSER PASSWORD 'root';" || true
+          PGPASSWORD=postgres psql -h localhost -U postgres -d test_db -c "GRANT ALL PRIVILEGES ON DATABASE test_db TO test_user;" || true
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -109,11 +123,6 @@ jobs:
           fi
 
       - name: Run tests
-        env:
-          DATABASE_URL: postgresql://test_user:test_pass@localhost:5432/test_db
-          REDIS_URL: redis://localhost:6379/0
-          JWT_SECRET_KEY: test-secret-key
-          SAHOOL_ENV: local
         run: |
           pytest libs-shared/tests/ -v --cov=libs-shared --cov-report=xml
 

@@ -2,23 +2,21 @@
 سهول اليمن - Analytics Core Service v2.0
 خدمة التحليلات والإحصاءات الزراعية مع تكامل قاعدة البيانات
 """
-import os
-from fastapi import FastAPI, HTTPException, Depends, Query
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from datetime import date, datetime, timedelta
 from typing import Optional, List, Dict, Any
-from uuid import UUID
 import random
 
-# Try to import from shared library
+# Try to import from shared library - imports marked as potentially unused with noqa
 try:
-    from sahool_shared.database import get_async_db_session, DatabaseManager
-    from sahool_shared.models import (
+    from sahool_shared.database import get_async_db_session, DatabaseManager  # noqa: F401
+    from sahool_shared.models import (  # noqa: F401
         Field as FieldModel, NDVIResult, YieldRecord,
         Region, SoilAnalysis, WeatherData
     )
-    from sahool_shared.auth import get_current_user, AuthenticatedUser
+    from sahool_shared.auth import get_current_user, AuthenticatedUser  # noqa: F401
     SHARED_LIB_AVAILABLE = True
 except ImportError:
     SHARED_LIB_AVAILABLE = False
@@ -53,6 +51,7 @@ app.add_middleware(
 # Pydantic Models
 # ============================================================
 
+
 class NDVITimelinePoint(BaseModel):
     """نقطة في سلسلة NDVI الزمنية"""
     date: date
@@ -61,6 +60,7 @@ class NDVITimelinePoint(BaseModel):
     max_ndvi: float = Field(..., ge=0, le=1, description="أعلى NDVI")
     std_ndvi: float = Field(..., ge=0, description="الانحراف المعياري")
     health_status: Optional[str] = None
+
 
 class NDVITimelineResponse(BaseModel):
     """استجابة سلسلة NDVI الزمنية"""
@@ -71,6 +71,7 @@ class NDVITimelineResponse(BaseModel):
     trend_strength: float = Field(..., description="قوة الترند")
     avg_ndvi: float
     health_summary: str
+
 
 class YieldPrediction(BaseModel):
     """توقع الإنتاجية"""
@@ -84,6 +85,7 @@ class YieldPrediction(BaseModel):
     factors: Dict[str, Any]
     recommendations_ar: List[str]
 
+
 class SeasonalAnalysis(BaseModel):
     """تحليل الموسم الزراعي"""
     season: str
@@ -94,6 +96,7 @@ class SeasonalAnalysis(BaseModel):
     water_needs: str
     expected_challenges: List[str]
     current: bool = False
+
 
 class RegionStats(BaseModel):
     """إحصاءات المنطقة"""
@@ -108,6 +111,7 @@ class RegionStats(BaseModel):
     alerts_count: int
     health_distribution: Dict[str, float]
 
+
 class DashboardStats(BaseModel):
     """إحصاءات لوحة التحكم"""
     total_fields: int
@@ -121,6 +125,7 @@ class DashboardStats(BaseModel):
     weather_summary: Dict[str, Any]
     last_updated: datetime
 
+
 class CropComparison(BaseModel):
     """مقارنة المحاصيل"""
     crop_type: str
@@ -131,9 +136,11 @@ class CropComparison(BaseModel):
     total_farmers: int
     profit_margin_percent: float
 
+
 # ============================================================
 # Yemen Data
 # ============================================================
+
 
 YEMEN_REGIONS = {
     1: {"ar": "صنعاء", "en": "Sana'a"},
@@ -181,6 +188,7 @@ CROP_DATA = {
 # Helper Functions
 # ============================================================
 
+
 def get_ndvi_health_status(ndvi: float) -> str:
     """تحديد حالة الصحة من NDVI"""
     if ndvi >= 0.7:
@@ -192,6 +200,7 @@ def get_ndvi_health_status(ndvi: float) -> str:
     else:
         return "ضعيف"
 
+
 def get_current_season() -> str:
     """تحديد الموسم الحالي"""
     month = datetime.now().month
@@ -200,9 +209,11 @@ def get_current_season() -> str:
             return season_ar
     return "شتاء"
 
+
 # ============================================================
 # Endpoints
 # ============================================================
+
 
 @app.get("/health")
 async def health():
@@ -214,6 +225,7 @@ async def health():
         "database_connected": SHARED_LIB_AVAILABLE,
         "timestamp": datetime.utcnow().isoformat()
     }
+
 
 @app.get("/api/v1/analytics/ndvi/{field_id}/timeline", response_model=NDVITimelineResponse)
 async def get_ndvi_timeline(
@@ -270,6 +282,7 @@ async def get_ndvi_timeline(
         avg_ndvi=round(avg_ndvi, 3),
         health_summary=health_summary
     )
+
 
 @app.get("/api/v1/analytics/yield-prediction", response_model=YieldPrediction)
 async def predict_yield(
@@ -329,6 +342,7 @@ async def predict_yield(
         recommendations_ar=recommendations
     )
 
+
 @app.get("/api/v1/analytics/seasonal", response_model=List[SeasonalAnalysis])
 async def get_seasonal_analysis(region_id: Optional[int] = None):
     """تحليل المواسم الزراعية"""
@@ -363,6 +377,7 @@ async def get_seasonal_analysis(region_id: Optional[int] = None):
 
     return analyses
 
+
 @app.get("/api/v1/analytics/region/{region_id}/stats", response_model=RegionStats)
 async def get_region_stats(region_id: int):
     """إحصاءات المنطقة الزراعية"""
@@ -389,6 +404,7 @@ async def get_region_stats(region_id: int):
         }
     )
 
+
 @app.get("/api/v1/analytics/regions/comparison")
 async def compare_regions():
     """مقارنة بين المناطق الزراعية"""
@@ -414,6 +430,7 @@ async def compare_regions():
         "national_avg_ndvi": round(sum(r["avg_ndvi"] for r in comparisons) / len(comparisons), 3)
     }
 
+
 @app.get("/api/v1/analytics/crops/comparison", response_model=List[CropComparison])
 async def compare_crops():
     """مقارنة بين المحاصيل"""
@@ -430,6 +447,7 @@ async def compare_crops():
         ))
 
     return comparisons
+
 
 @app.get("/api/v1/analytics/dashboard", response_model=DashboardStats)
 async def get_dashboard_stats():
@@ -462,6 +480,7 @@ async def get_dashboard_stats():
         },
         last_updated=datetime.utcnow()
     )
+
 
 @app.get("/api/v1/analytics/trends")
 async def get_agricultural_trends(months: int = Query(12, ge=3, le=36)):

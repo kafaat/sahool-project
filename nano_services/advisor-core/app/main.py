@@ -3,22 +3,19 @@
 خدمة التوصيات والاستشارات الزراعية الذكية مع تكامل قاعدة البيانات
 """
 import os
-from fastapi import FastAPI, HTTPException, Depends, Query
+import random
+from datetime import date, datetime, timedelta
+from typing import Any, Dict, List, Optional
+from uuid import uuid4
+
+from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
-from datetime import datetime, date, timedelta
-from typing import Optional, List, Dict, Any
-from uuid import UUID, uuid4
-import random
+
 
 # Try to import from shared library
 try:
-    from sahool_shared.database import get_async_db_session, DatabaseManager
-    from sahool_shared.models import (
-        Field as FieldModel, NDVIResult, SoilAnalysis,
-        WeatherData, PlantHealth, IrrigationSchedule
-    )
-    from sahool_shared.auth import get_current_user, AuthenticatedUser
+    from sahool_shared.database import get_async_db_session  # noqa: F401
     SHARED_LIB_AVAILABLE = True
 except ImportError:
     SHARED_LIB_AVAILABLE = False
@@ -53,6 +50,7 @@ app.add_middleware(
 # Pydantic Models
 # ============================================================
 
+
 class RecommendationAction(BaseModel):
     """إجراء موصى به"""
     action_ar: str
@@ -61,6 +59,7 @@ class RecommendationAction(BaseModel):
     estimated_cost_yer: Optional[float] = None
     expected_benefit: Optional[str] = None
     deadline_days: Optional[int] = None
+
 
 class Recommendation(BaseModel):
     """توصية زراعية"""
@@ -76,6 +75,7 @@ class Recommendation(BaseModel):
     valid_until: Optional[datetime] = None
     confidence: float = Field(default=0.85, ge=0, le=1)
 
+
 class AdvisorResponse(BaseModel):
     """استجابة تحليل الحقل"""
     field_id: str
@@ -89,6 +89,7 @@ class AdvisorResponse(BaseModel):
     risk_level: str
     score: float = Field(..., ge=0, le=100, description="درجة صحة الحقل")
     analyzed_at: datetime
+
 
 class IrrigationAdvice(BaseModel):
     """نصيحة الري"""
@@ -105,6 +106,7 @@ class IrrigationAdvice(BaseModel):
     next_irrigation: date
     weather_adjustment: str
 
+
 class PestAlert(BaseModel):
     """تنبيه آفة"""
     id: str
@@ -119,6 +121,7 @@ class PestAlert(BaseModel):
     organic_treatment_ar: Optional[str] = None
     active_regions: List[str]
     reported_date: date
+
 
 class CropRecommendation(BaseModel):
     """توصية محصول"""
@@ -136,6 +139,7 @@ class CropRecommendation(BaseModel):
     market_demand: str
     estimated_profit_yer_ha: float
 
+
 class FieldAnalysisRequest(BaseModel):
     """طلب تحليل الحقل"""
     field_id: str
@@ -144,11 +148,13 @@ class FieldAnalysisRequest(BaseModel):
     weather: Optional[Dict[str, Any]] = None
     soil_data: Optional[Dict[str, Any]] = None
 
+
 class AdvisorQuestion(BaseModel):
     """سؤال للمستشار"""
     question: str
     context: Optional[Dict[str, Any]] = None
     language: str = "ar"
+
 
 # ============================================================
 # Yemen Agricultural Data
@@ -224,6 +230,7 @@ YEMEN_REGIONS = {
 # Helper Functions
 # ============================================================
 
+
 def get_health_status(ndvi: float) -> tuple:
     """تحديد حالة الصحة"""
     if ndvi >= 0.7:
@@ -235,7 +242,10 @@ def get_health_status(ndvi: float) -> tuple:
     else:
         return "ضعيف - يحتاج تدخل", "poor", "high"
 
-def calculate_field_score(ndvi: float, soil_ph: float = 7.0, weather_factor: float = 1.0) -> float:
+
+def calculate_field_score(
+    ndvi: float, soil_ph: float = 7.0, weather_factor: float = 1.0
+) -> float:
     """حساب درجة صحة الحقل"""
     ndvi_score = ndvi * 50  # Max 50 points
     soil_score = 25 - abs(soil_ph - 7.0) * 5  # Optimal pH around 7
@@ -245,6 +255,7 @@ def calculate_field_score(ndvi: float, soil_ph: float = 7.0, weather_factor: flo
 # ============================================================
 # Endpoints
 # ============================================================
+
 
 @app.get("/health")
 async def health():
@@ -257,6 +268,7 @@ async def health():
         "ai_enabled": bool(os.getenv("OPENAI_API_KEY")),
         "timestamp": datetime.utcnow().isoformat()
     }
+
 
 @app.post("/api/v1/advisor/analyze-field", response_model=AdvisorResponse)
 async def analyze_field(request: FieldAnalysisRequest):
@@ -435,6 +447,7 @@ async def analyze_field(request: FieldAnalysisRequest):
         analyzed_at=now
     )
 
+
 @app.get("/api/v1/advisor/irrigation/{field_id}", response_model=IrrigationAdvice)
 async def get_irrigation_advice(
     field_id: str,
@@ -479,6 +492,7 @@ async def get_irrigation_advice(
         weather_adjustment="طبيعي" if seasonal_factor == 1.0 else "زيادة بسبب الحرارة" if seasonal_factor > 1 else "تقليل بسبب البرودة"
     )
 
+
 @app.get("/api/v1/advisor/pest-alerts", response_model=List[PestAlert])
 async def get_pest_alerts(
     region_id: Optional[int] = None,
@@ -516,6 +530,7 @@ async def get_pest_alerts(
             ))
 
     return alerts
+
 
 @app.get("/api/v1/advisor/crop-recommendations", response_model=List[CropRecommendation])
 async def get_crop_recommendations(
@@ -571,6 +586,7 @@ async def get_crop_recommendations(
     # Sort by suitability
     recommendations.sort(key=lambda x: x.suitability_score, reverse=True)
     return recommendations
+
 
 @app.post("/api/v1/advisor/ask")
 async def ask_advisor(request: AdvisorQuestion):
@@ -630,6 +646,7 @@ async def ask_advisor(request: AdvisorQuestion):
         "timestamp": datetime.utcnow().isoformat()
     }
 
+
 @app.get("/api/v1/advisor/seasonal-calendar")
 async def get_seasonal_calendar(region_id: Optional[int] = None):
     """التقويم الزراعي الموسمي"""
@@ -655,7 +672,7 @@ async def get_seasonal_calendar(region_id: Optional[int] = None):
     return {
         "current_month": current_month,
         "current_month_ar": ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو",
-                            "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"][current_month - 1],
+                             "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"][current_month - 1],
         "calendar": calendar,
         "planting_now": [c["crop_ar"] for c in calendar if c["is_planting_season"]],
         "harvesting_now": [c["crop_ar"] for c in calendar if c["is_harvest_season"]]

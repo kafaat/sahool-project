@@ -3,7 +3,6 @@ Unit tests for Weather Core Service
 سهول اليمن - اختبارات خدمة الطقس
 """
 import pytest
-from datetime import date
 from fastapi.testclient import TestClient
 from app.main import app
 

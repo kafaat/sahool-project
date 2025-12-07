@@ -6,22 +6,26 @@ Orchestrates AI/ML models for agricultural intelligence.
 """
 
 import os
-from contextlib import asynccontextmanager
-from typing import List, Optional, Dict, Any
-
-from fastapi import FastAPI, HTTPException, Query, BackgroundTasks
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
-
 import sys
+from contextlib import asynccontextmanager
+from typing import List, Dict, Any
+
 sys.path.insert(0, "/app/libs-shared")
 
+from fastapi import FastAPI, HTTPException, Query, BackgroundTasks  # noqa: E402
+from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
+from pydantic import BaseModel, Field  # noqa: E402
+
 try:
-    from sahool_shared.utils import setup_logging, get_logger
+    from sahool_shared.utils import setup_logging, get_logger  # noqa: E402
 except ImportError:
     import logging
-    def setup_logging(service_name: str): pass
-    def get_logger(name: str): return logging.getLogger(name)
+
+    def setup_logging(service_name: str):
+        pass
+
+    def get_logger(name: str):
+        return logging.getLogger(name)
 
 logger = get_logger(__name__)
 
@@ -32,7 +36,7 @@ logger = get_logger(__name__)
 
 class PredictionRequest(BaseModel):
     """AI prediction request."""
-    model_type: str = Field(..., description="Model: yield_prediction, disease_detection, pest_identification, irrigation_optimization")
+    model_type: str = Field(..., description="AI model type")
     field_id: str
     parameters: Dict[str, Any] = Field(default_factory=dict)
 

@@ -11,9 +11,8 @@ import secrets
 import time
 import re
 from datetime import datetime, timedelta
-from typing import Optional, Callable, Any
+from typing import Optional, Any
 from dataclasses import dataclass
-from functools import wraps
 
 from fastapi import Request, Response, HTTPException, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials

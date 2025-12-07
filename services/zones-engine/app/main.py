@@ -1,6 +1,9 @@
+import os
+from datetime import datetime
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from datetime import datetime
+
 
 app = FastAPI(
     title="Zones Engine",
@@ -8,8 +11,6 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc"
 )
-
-import os
 
 # CORS Configuration - use specific origins in production
 CORS_ORIGINS = [o.strip() for o in os.getenv("CORS_ORIGINS", "").split(",") if o.strip()]

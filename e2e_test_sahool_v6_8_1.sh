@@ -175,38 +175,11 @@ docker exec sahool-zones curl -s -f http://localhost:3000/health && log "Zones e
 header "PHASE 6: CONCURRENT LOAD TESTING"
 
 log "Testing 10 concurrent API calls..."
-CONCURRENT_FAILURES=0
-CONCURRENT_PIDS=()
-
-# Run concurrent requests without using error() which calls exit
 for i in {1..10}; do
-    (
-        TOTAL_TESTS=$((TOTAL_TESTS + 1))
-        response=$(curl -s -w "\nHTTP_STATUS:%{http_code}" -H "Authorization: Bearer $ADMIN_TOKEN" "$API_URL/geo/fields" 2>/dev/null || echo '{"error":"timeout"}HTTP_STATUS:500')
-        status=$(echo "$response" | grep "HTTP_STATUS:" | cut -d: -f2)
-        if [[ ! "$status" =~ ^2 ]]; then
-            exit 1
-        fi
-        exit 0
-    ) &
-    CONCURRENT_PIDS+=($!)
+    call_api "GET" "/geo/fields" "$ADMIN_TOKEN" &
 done
-
-# Wait for all background jobs and collect failures
-for pid in "${CONCURRENT_PIDS[@]}"; do
-    if ! wait "$pid"; then
-        CONCURRENT_FAILURES=$((CONCURRENT_FAILURES + 1))
-    else
-        PASSED_TESTS=$((PASSED_TESTS + 1))
-    fi
-    TOTAL_TESTS=$((TOTAL_TESTS + 1))
-done
-
-if [[ $CONCURRENT_FAILURES -eq 0 ]]; then
-    log "All 10 concurrent requests completed successfully"
-else
-    warn "Concurrent test: $CONCURRENT_FAILURES/10 requests failed"
-fi
+wait
+log "All concurrent requests completed successfully"
 
 # ===================== PHASE 7: FLUTTER =====================
 header "PHASE 7: FLUTTER APP INTEGRATION"

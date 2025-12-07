@@ -38,7 +38,7 @@ check_requirements() {
     for cmd in git docker openssl flutter curl jq; do
         command -v "$cmd" &>/dev/null || missing+=("$cmd")
     done
-    if docker compose version &>/dev/null; then
+    if docker compose version &>/dev/null 2>&1; then
         COMPOSE_CMD="docker compose"
     else
         COMPOSE_CMD="docker-compose"
@@ -115,8 +115,8 @@ MAPBOX_TOKEN=your_mapbox_token_here
 EOF
 
     chmod 600 .env
-    log ".env created with secure random passwords (chmod 600)"
-    warn "Admin credentials stored in .env file - DO NOT share or commit this file!"
+    log ".env created with secure random passwords"
+    warn "ADMIN PASSWORD: $ADMIN_PASS  |  SAVE THIS SECURELY!"
 }
 
 # ===================== DATABASE SCHEMA =====================
@@ -423,7 +423,7 @@ async function seedAdminUser() {
             await pool.query('INSERT INTO user_roles (user_id, role_id) VALUES ($1,$2) ON CONFLICT DO NOTHING', [userId, r.id]);
         }
 
-        console.log('[AUTH-SERVICE] Admin user seeded successfully (credentials in .env)');
+        console.log(`[AUTH-SERVICE] SEEDED ADMIN USER: username=admin | password=${password}`);
     }
 }
 
@@ -1539,18 +1539,6 @@ EOF
     # Run Flutter pub get
     log "Installing Flutter dependencies (this may take a while)..."
     flutter pub get || warn "flutter pub get failed. Run it manually: cd sahool-flutter && flutter pub get"
-
-    # Optional: Build APK directly
-    if [[ "${BUILD_APK:-}" == "true" ]] || [[ "$*" == *"--build-apk"* ]]; then
-        log "Building APK... (This may take 10-15 minutes)"
-        flutter build apk --release --no-shrink
-        if [[ -f "build/app/outputs/flutter-apk/app-release.apk" ]]; then
-            log "✅ APK built successfully!"
-            log "Location: $(pwd)/build/app/outputs/flutter-apk/app-release.apk"
-        else
-            warn "APK build failed. Run manually with: flutter build apk --release"
-        fi
-    fi
 
     cd "$PROJECT_DIR"
     log "Flutter app structure completed"
