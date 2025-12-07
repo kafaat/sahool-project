@@ -32,6 +32,9 @@ def _get_service_app(service_name: str):
         sys.path.insert(0, service_path)
     
     try:
+        # Clear import cache for app and app.main to avoid shadowing
+        sys.modules.pop("app", None)
+        sys.modules.pop("app.main", None)
         from app.main import app
         return app
     except ImportError:
