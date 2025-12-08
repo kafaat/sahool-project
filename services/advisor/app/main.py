@@ -3,16 +3,17 @@ Sahool Yemen - Advisor Service (خدمة المستشار الزراعي)
 Agricultural advisory recommendations based on NDVI, weather, and field data.
 """
 
-from fastapi import FastAPI, HTTPException, Depends, Query
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
-from typing import Optional, List
-from datetime import date, datetime
+import os
+from datetime import datetime
 from enum import Enum
-import httpx
-import asyncio
+from typing import List, Optional
+
+from fastapi import FastAPI, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 from prometheus_client import Counter, Histogram, generate_latest
 from starlette.responses import Response
+
 
 # =============================================================================
 # Configuration
@@ -25,8 +26,6 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc"
 )
-
-import os
 
 # CORS Configuration - use specific origins in production
 CORS_ORIGINS = [o.strip() for o in os.getenv("CORS_ORIGINS", "").split(",") if o.strip()]
@@ -43,11 +42,14 @@ app.add_middleware(
 # Prometheus metrics
 REQUEST_COUNT = Counter('sahool_advisor_requests_total', 'Total advisor requests', ['endpoint', 'status'])
 REQUEST_LATENCY = Histogram('sahool_advisor_request_duration_seconds', 'Request latency', ['endpoint'])
-RECOMMENDATIONS_GENERATED = Counter('sahool_advisor_recommendations_total', 'Total recommendations generated', ['type', 'severity'])
+RECOMMENDATIONS_GENERATED = Counter(
+    'sahool_advisor_recommendations_total', 'Total recommendations generated', ['type', 'severity']
+)
 
 # =============================================================================
 # Models
 # =============================================================================
+
 
 class RecommendationType(str, Enum):
     IRRIGATION = "irrigation"
@@ -58,11 +60,13 @@ class RecommendationType(str, Enum):
     WEATHER_ALERT = "weather_alert"
     CROP_HEALTH = "crop_health"
 
+
 class Severity(str, Enum):
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
     CRITICAL = "critical"
+
 
 class Recommendation(BaseModel):
     id: str
@@ -79,6 +83,7 @@ class Recommendation(BaseModel):
     valid_until: datetime
     metadata: dict = {}
 
+
 class FieldAdvisory(BaseModel):
     field_id: str
     field_name: str
@@ -86,6 +91,7 @@ class FieldAdvisory(BaseModel):
     health_status: str
     recommendations: List[Recommendation]
     generated_at: datetime
+
 
 class CropCalendarEntry(BaseModel):
     crop_type: str
@@ -95,6 +101,7 @@ class CropCalendarEntry(BaseModel):
     end_month: int
     description_ar: str
     description_en: str
+
 
 # =============================================================================
 # Crop Knowledge Base (Yemen-specific)
@@ -155,6 +162,7 @@ YEMEN_CROPS = {
 # Advisory Logic
 # =============================================================================
 
+
 def generate_ndvi_recommendations(
     ndvi_value: float,
     crop_type: str,
@@ -193,7 +201,7 @@ def generate_ndvi_recommendations(
             severity=Severity.HIGH,
             title_ar="صحة المحصول دون المستوى المطلوب",
             title_en="Crop Health Below Optimal",
-            description_ar=f"قيمة NDVI ({ndvi_value:.2f}) أقل من النطاق الأمثل لـ{crop_info.get('name_ar', crop_type)}.",
+            description_ar=f"قيمة NDVI ({ndvi_value:.2f}) أقل من النطاق الأمثل.",
             description_en=f"NDVI value ({ndvi_value:.2f}) is below optimal range for {crop_type}.",
             action_ar="زيادة الري وفحص التربة للتسميد.",
             action_en="Increase irrigation and check soil for fertilization needs.",
@@ -224,6 +232,7 @@ def generate_ndvi_recommendations(
         RECOMMENDATIONS_GENERATED.labels(type="crop_health", severity="low").inc()
 
     return recommendations
+
 
 def generate_weather_recommendations(
     temperature: float,
@@ -320,6 +329,7 @@ def generate_weather_recommendations(
 
     return recommendations
 
+
 def get_seasonal_recommendations(
     crop_type: str,
     region: str,
@@ -356,15 +366,18 @@ def get_seasonal_recommendations(
 # API Endpoints
 # =============================================================================
 
+
 @app.get("/health")
 async def health_check():
     """Health check endpoint."""
     return {"status": "healthy", "service": "advisor", "version": "9.0.0"}
 
+
 @app.get("/metrics")
 async def metrics():
     """Prometheus metrics endpoint."""
     return Response(generate_latest(), media_type="text/plain")
+
 
 @app.get("/api/v1/advisor/field/{field_id}", response_model=FieldAdvisory)
 async def get_field_advisory(
@@ -424,6 +437,7 @@ async def get_field_advisory(
             REQUEST_COUNT.labels(endpoint="field_advisory", status="error").inc()
             raise HTTPException(status_code=500, detail=str(e))
 
+
 @app.get("/api/v1/advisor/crops")
 async def get_supported_crops():
     """
@@ -443,6 +457,7 @@ async def get_supported_crops():
             for key, value in YEMEN_CROPS.items()
         ]
     }
+
 
 @app.get("/api/v1/advisor/calendar")
 async def get_crop_calendar(
@@ -472,6 +487,7 @@ async def get_crop_calendar(
             for month in range(1, 13)
         ]
     }
+
 
 @app.post("/api/v1/advisor/analyze")
 async def analyze_conditions(

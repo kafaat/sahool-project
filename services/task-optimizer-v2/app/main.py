@@ -6,22 +6,26 @@ Optimizes agricultural task scheduling and resource allocation.
 """
 
 import os
+import sys
 from contextlib import asynccontextmanager
 from typing import List, Optional, Dict, Any
 
-from fastapi import FastAPI, HTTPException, Query
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
-
-import sys
 sys.path.insert(0, "/app/libs-shared")
 
+from fastapi import FastAPI, HTTPException, Query  # noqa: E402
+from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
+from pydantic import BaseModel, Field  # noqa: E402
+
 try:
-    from sahool_shared.utils import setup_logging, get_logger
+    from sahool_shared.utils import setup_logging, get_logger  # noqa: E402
 except ImportError:
     import logging
-    def setup_logging(service_name: str): pass
-    def get_logger(name: str): return logging.getLogger(name)
+
+    def setup_logging(service_name: str):
+        pass
+
+    def get_logger(name: str):
+        return logging.getLogger(name)
 
 logger = get_logger(__name__)
 
@@ -56,7 +60,7 @@ class OptimizationRequest(BaseModel):
     tasks: List[Task]
     resources: List[Resource]
     constraints: Dict[str, Any] = Field(default_factory=dict)
-    optimization_goal: str = Field(default="minimize_time", description="Goal: minimize_time, minimize_cost, balance_load")
+    optimization_goal: str = Field(default="minimize_time", description="Optimization goal")
 
 
 class ScheduledTask(BaseModel):

@@ -18,7 +18,7 @@ os.environ.setdefault("DATABASE_URL", "postgresql://test:test@localhost:5432/tes
 os.environ.setdefault("JWT_SECRET_KEY", "test-secret-key")
 os.environ.setdefault("API_KEY_SECRET", "test-api-key")
 
-from app.main import app
+from app.main import app  # noqa: E402
 
 client = TestClient(app)
 
@@ -254,7 +254,7 @@ class TestCORS:
 
     def test_cors_headers_present(self):
         """CORS headers should be present"""
-        response = client.options("/health")
+        _ = client.options("/health")
         # FastAPI handles OPTIONS automatically with CORS middleware
 
 

@@ -3,12 +3,12 @@
 خدمة الاستعلامات المتقدمة وإدارة البيانات
 Sahool Yemen - Advanced Query & Data Management Service
 """
-from fastapi import FastAPI, HTTPException, Query, Path
+from fastapi import FastAPI, Query, Path
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from datetime import date, datetime, timedelta
 from typing import Optional, List, Dict, Any
-from uuid import UUID, uuid4
+from uuid import uuid4
 from enum import Enum
 import random
 

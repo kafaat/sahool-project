@@ -10,12 +10,11 @@ Enhanced with:
 - Advanced Monitoring
 """
 import os
-import asyncio
 from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import Optional
 
-from fastapi import FastAPI, Request, HTTPException, Depends, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Request, HTTPException, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
@@ -31,16 +30,14 @@ from app.core.resilience import (
     with_circuit_breaker,
     with_retry,
     RetryConfig,
-    health_aggregator,
     Bulkhead,
 )
-from app.core.cache import cache_manager, cached, region_cache
+from app.core.cache import cache_manager, cached
 from app.core.security import (
     SecurityHeadersMiddleware,
     RateLimitMiddleware,
     rate_limiter,
     InputValidator,
-    get_current_user,
 )
 from app.core.websocket import (
     connection_manager,
