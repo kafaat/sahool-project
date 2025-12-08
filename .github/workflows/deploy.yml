@@ -26,6 +26,10 @@ jobs:
   test:
     name: Run Tests
     runs-on: ubuntu-latest
+    
+    env:
+      POSTGRES_USER: test_user
+      POSTGRES_PASSWORD: test_pass
 
     env:
       DATABASE_URL: postgresql://test_user:test_pass@localhost:5432/test_user
@@ -33,6 +37,7 @@ jobs:
       REDIS_URL: redis://localhost:6379/0
       JWT_SECRET_KEY: test-secret-key-for-ci
       SAHOOL_ENV: test
+    
       POSTGRES_USER: test_user
       POSTGRES_PASSWORD: test_pass
       ENV: test
@@ -49,6 +54,10 @@ jobs:
           - 5432:5432
         options: >-
           --health-cmd="pg_isready -U test_user"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+      
           --health-cmd "pg_isready -U test_user -d test_user"
           --health-interval 10s
           --health-timeout 5s
@@ -71,6 +80,17 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+      
+      - name: Wait for Postgres and ensure test_user DB exists
+        env:
+          PGUSER: ${{ env.POSTGRES_USER }}
+          PGPASSWORD: ${{ env.POSTGRES_PASSWORD }}
+        run: |
+          echo "Waiting for Postgres service to be ready..."
+          until docker exec ${{ job.services.postgres.id }} pg_isready -U "$PGUSER"; do sleep 1; done
+          echo "Postgres is ready. Ensuring database 'test_user' exists..."
+          docker exec -i ${{ job.services.postgres.id }} psql -U "$PGUSER" -tAc "SELECT 1 FROM pg_database WHERE datname='test_user'" | grep -q 1 || \
+            docker exec -i ${{ job.services.postgres.id }} psql -U "$PGUSER" -c "CREATE DATABASE test_user;"
 
       - name: Wait for Postgres and ensure test_user DB exists
         env:
