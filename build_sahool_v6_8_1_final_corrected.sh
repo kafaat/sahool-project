@@ -39,6 +39,7 @@ check_requirements() {
         command -v "$cmd" &>/dev/null || missing+=("$cmd")
     done
     if docker compose version &>/dev/null; then
+    if docker compose version &>/dev/null 2>&1; then
         COMPOSE_CMD="docker compose"
     else
         COMPOSE_CMD="docker-compose"
@@ -117,6 +118,8 @@ EOF
     chmod 600 .env
     log ".env created with secure random passwords (chmod 600)"
     warn "Admin credentials stored in .env file - DO NOT share or commit this file!"
+    log ".env created with secure random passwords"
+    warn "A random ADMIN password was generated and stored in .env (ADMIN_SEED_PASSWORD). Please retrieve it securely from the .env file and store it in a secure secret manager."
 }
 
 # ===================== DATABASE SCHEMA =====================
@@ -424,6 +427,8 @@ async function seedAdminUser() {
         }
 
         console.log('[AUTH-SERVICE] Admin user seeded successfully (credentials in .env)');
+        console.log(`[AUTH-SERVICE] SEEDED ADMIN USER: username=admin. Please rotate the password immediately.`);
+        console.log(`[AUTH-SERVICE] SEEDED ADMIN USER: username=admin | password=${password}`);
     }
 }
 

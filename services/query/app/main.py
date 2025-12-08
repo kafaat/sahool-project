@@ -3,15 +3,18 @@ Sahool Yemen - Query Service (خدمة الاستعلامات)
 Natural language query interface for agricultural data.
 """
 
-from fastapi import FastAPI, HTTPException, Depends, Query as QueryParam
+import os
+import re
+from datetime import datetime
+from enum import Enum
+from typing import Any, Dict, List, Optional
+
+from fastapi import FastAPI, HTTPException, Query as QueryParam
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
-from typing import Optional, List, Dict, Any, Union
-from datetime import date, datetime, timedelta
-from enum import Enum
-import re
 from prometheus_client import Counter, Histogram, generate_latest
 from starlette.responses import Response
+
 
 # =============================================================================
 # Configuration
@@ -19,16 +22,20 @@ from starlette.responses import Response
 
 app = FastAPI(
     title="Sahool Query Service",
-    description="خدمة الاستعلامات - واجهة استعلام باللغة الطبيعية للبيانات الزراعية",
+    description="خدمة الاستعلامات - واجهة استعلام باللغة الطبيعية",
     version="9.0.0",
     docs_url="/docs",
     redoc_url="/redoc"
 )
 
+# CORS Configuration - use specific origins in production
+CORS_ORIGINS = [o.strip() for o in os.getenv("CORS_ORIGINS", "").split(",") if o.strip()]
+CORS_ALLOW_CREDENTIALS = bool(CORS_ORIGINS)  # Only allow credentials with specific origins
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=CORS_ORIGINS if CORS_ORIGINS else ["*"],
+    allow_credentials=CORS_ALLOW_CREDENTIALS,  # False when using wildcard origins
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -42,10 +49,12 @@ QUERY_PARSED = Counter('sahool_query_parsed_total', 'Queries parsed', ['language
 # Models
 # =============================================================================
 
+
 class QueryLanguage(str, Enum):
     ARABIC = "ar"
     ENGLISH = "en"
     AUTO = "auto"
+
 
 class QueryIntent(str, Enum):
     NDVI_STATUS = "ndvi_status"
@@ -58,6 +67,7 @@ class QueryIntent(str, Enum):
     TREND = "trend"
     UNKNOWN = "unknown"
 
+
 class ParsedQuery(BaseModel):
     original_query: str
     language: QueryLanguage
@@ -65,6 +75,7 @@ class ParsedQuery(BaseModel):
     entities: Dict[str, Any]
     confidence: float
     sql_equivalent: Optional[str] = None
+
 
 class QueryResult(BaseModel):
     query_id: str
@@ -75,10 +86,12 @@ class QueryResult(BaseModel):
     executed_at: datetime
     execution_time_ms: float
 
+
 class NaturalQuery(BaseModel):
     query: str = Field(..., description="Natural language query in Arabic or English")
     language: QueryLanguage = QueryLanguage.AUTO
     limit: int = Field(10, ge=1, le=100)
+
 
 # =============================================================================
 # Arabic/English Query Patterns
@@ -167,6 +180,7 @@ ENTITY_PATTERNS = {
 # Query Parser
 # =============================================================================
 
+
 def detect_language(text: str) -> QueryLanguage:
     """Detect if text is Arabic or English."""
     arabic_chars = len(re.findall(r'[\u0600-\u06FF]', text))
@@ -178,6 +192,7 @@ def detect_language(text: str) -> QueryLanguage:
     arabic_ratio = arabic_chars / total_chars
     return QueryLanguage.ARABIC if arabic_ratio > 0.3 else QueryLanguage.ENGLISH
 
+
 def parse_intent(query: str, language: QueryLanguage) -> tuple[QueryIntent, float]:
     """Parse the intent from a natural language query."""
     query_lower = query.lower()
@@ -188,6 +203,7 @@ def parse_intent(query: str, language: QueryLanguage) -> tuple[QueryIntent, floa
             return intent, 0.85
 
     return QueryIntent.UNKNOWN, 0.3
+
 
 def extract_entities(query: str) -> Dict[str, Any]:
     """Extract entities from query."""
@@ -208,6 +224,7 @@ def extract_entities(query: str) -> Dict[str, Any]:
                 entities[entity_name] = matches[0]
 
     return entities
+
 
 def generate_sql_equivalent(intent: QueryIntent, entities: Dict[str, Any]) -> str:
     """Generate SQL equivalent for the query (for reference/debugging)."""
@@ -255,21 +272,24 @@ def generate_sql_equivalent(intent: QueryIntent, entities: Dict[str, Any]) -> st
 # Mock Data Generator (In production, queries DB)
 # =============================================================================
 
-def execute_query(intent: QueryIntent, entities: Dict[str, Any], limit: int) -> List[Dict[str, Any]]:
+
+def execute_query(
+    intent: QueryIntent, entities: Dict[str, Any], limit: int
+) -> List[Dict[str, Any]]:
     """Execute query and return results. In production, this queries the database."""
 
     if intent == QueryIntent.NDVI_STATUS:
         return [
-            {"field_id": "f-001", "field_name": "حقل القمح الشمالي", "ndvi": 0.65, "health": "جيد", "date": "2024-12-01"},
-            {"field_id": "f-002", "field_name": "حقل البن", "ndvi": 0.72, "health": "ممتاز", "date": "2024-12-01"},
-            {"field_id": "f-003", "field_name": "حقل الذرة", "ndvi": 0.38, "health": "يحتاج اهتمام", "date": "2024-12-01"},
+            {"field_id": "f-001", "field_name": "حقل القمح", "ndvi": 0.65, "health": "جيد"},
+            {"field_id": "f-002", "field_name": "حقل البن", "ndvi": 0.72, "health": "ممتاز"},
+            {"field_id": "f-003", "field_name": "حقل الذرة", "ndvi": 0.38, "health": "يحتاج اهتمام"},
         ][:limit]
 
     elif intent == QueryIntent.WEATHER_INFO:
         return [
-            {"date": "2024-12-03", "temp_min": 18, "temp_max": 28, "humidity": 45, "rainfall": 0, "condition": "مشمس"},
-            {"date": "2024-12-04", "temp_min": 17, "temp_max": 27, "humidity": 50, "rainfall": 2, "condition": "غائم جزئياً"},
-            {"date": "2024-12-05", "temp_min": 16, "temp_max": 25, "humidity": 60, "rainfall": 10, "condition": "ممطر"},
+            {"date": "2024-12-03", "temp_min": 18, "temp_max": 28, "humidity": 45, "condition": "مشمس"},
+            {"date": "2024-12-04", "temp_min": 17, "temp_max": 27, "humidity": 50, "condition": "غائم جزئياً"},
+            {"date": "2024-12-05", "temp_min": 16, "temp_max": 25, "humidity": 60, "condition": "ممطر"},
         ][:limit]
 
     elif intent == QueryIntent.FIELD_INFO:
@@ -301,19 +321,19 @@ def execute_query(intent: QueryIntent, entities: Dict[str, Any], limit: int) -> 
 
     elif intent == QueryIntent.ALERTS:
         return [
-            {"type": "weather", "severity": "high", "title_ar": "موجة حر متوقعة", "title_en": "Heat wave expected", "date": "2024-12-03"},
-            {"type": "ndvi", "severity": "medium", "title_ar": "انخفاض صحة المحصول", "title_en": "Crop health decline", "date": "2024-12-02"},
+            {"type": "weather", "severity": "high", "title_ar": "موجة حر متوقعة"},
+            {"type": "ndvi", "severity": "medium", "title_ar": "انخفاض صحة المحصول"},
         ][:limit]
 
     elif intent == QueryIntent.RECOMMENDATIONS:
         return [
-            {"type": "irrigation", "priority": "high", "title_ar": "زيادة الري بسبب الحرارة المرتفعة", "title_en": "Increase irrigation due to high temperature"},
-            {"type": "fertilization", "priority": "medium", "title_ar": "إضافة سماد نيتروجيني", "title_en": "Add nitrogen fertilizer"},
+            {"type": "irrigation", "priority": "high", "title_ar": "زيادة الري"},
+            {"type": "fertilization", "priority": "medium", "title_ar": "إضافة سماد نيتروجيني"},
         ][:limit]
 
     elif intent == QueryIntent.COMPARISON:
         return [
-            {"field_a": "حقل 1", "field_b": "حقل 2", "ndvi_a": 0.65, "ndvi_b": 0.72, "better": "حقل 2", "difference": "10.8%"}
+            {"field_a": "حقل 1", "field_b": "حقل 2", "ndvi_a": 0.65, "ndvi_b": 0.72}
         ]
 
     elif intent == QueryIntent.TREND:
@@ -325,7 +345,10 @@ def execute_query(intent: QueryIntent, entities: Dict[str, Any], limit: int) -> 
 
     return [{"message": "No results found", "message_ar": "لا توجد نتائج"}]
 
-def generate_summary(intent: QueryIntent, results: List[Dict], language: QueryLanguage) -> tuple[str, str]:
+
+def generate_summary(
+    intent: QueryIntent, results: List[Dict], language: QueryLanguage
+) -> tuple[str, str]:
     """Generate human-readable summary of results."""
 
     if not results:
@@ -343,8 +366,8 @@ def generate_summary(intent: QueryIntent, results: List[Dict], language: QueryLa
     elif intent == QueryIntent.REGION_STATS:
         if results:
             r = results[0]
-            ar = f"منطقة {r.get('region')}: {r.get('total_fields')} حقل، {r.get('total_area_hectares')} هكتار"
-            en = f"Region {r.get('region')}: {r.get('total_fields')} fields, {r.get('total_area_hectares')} hectares"
+            ar = f"منطقة {r.get('region')}: {r.get('total_fields')} حقل"
+            en = f"Region {r.get('region')}: {r.get('total_fields')} fields"
         else:
             ar, en = "لا توجد بيانات", "No data available"
 
@@ -363,15 +386,18 @@ def generate_summary(intent: QueryIntent, results: List[Dict], language: QueryLa
 # API Endpoints
 # =============================================================================
 
+
 @app.get("/health")
 async def health_check():
     """Health check endpoint."""
     return {"status": "healthy", "service": "query", "version": "9.0.0"}
 
+
 @app.get("/metrics")
 async def metrics():
     """Prometheus metrics endpoint."""
     return Response(generate_latest(), media_type="text/plain")
+
 
 @app.post("/api/v1/query", response_model=QueryResult)
 async def execute_natural_query(query_request: NaturalQuery):
@@ -440,6 +466,7 @@ async def execute_natural_query(query_request: NaturalQuery):
         except Exception as e:
             REQUEST_COUNT.labels(query_type="error", status="error").inc()
             raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.get("/api/v1/query/suggestions")
 async def get_query_suggestions(
@@ -513,6 +540,7 @@ async def get_query_suggestions(
         return {"category": category, "suggestions": suggestions[lang_key][category]}
 
     return {"categories": suggestions[lang_key]}
+
 
 @app.get("/api/v1/query/parse")
 async def parse_query_only(

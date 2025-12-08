@@ -89,6 +89,11 @@ done
 if [[ -f "$PROJECT_DIR/.env" ]]; then
     source "$PROJECT_DIR/.env"
     ADMIN_PASS="$ADMIN_SEED_PASSWORD"
+    ADMIN_PASS="$(grep -E '^ADMIN_SEED_PASSWORD=' "$PROJECT_DIR/.env" | cut -d'=' -f2- | tr -d '"' | tail -n1)"
+    if [[ -z "$ADMIN_PASS" ]]; then
+        warn "ADMIN_SEED_PASSWORD not found in .env, using default password"
+        ADMIN_PASS="password"
+    fi
 else
     warn ".env not found, using default password"
     ADMIN_PASS="password"
@@ -207,6 +212,11 @@ if [[ $CONCURRENT_FAILURES -eq 0 ]]; then
 else
     warn "Concurrent test: $CONCURRENT_FAILURES/10 requests failed"
 fi
+for i in {1..10}; do
+    call_api "GET" "/geo/fields" "$ADMIN_TOKEN" &
+done
+wait
+log "All concurrent requests completed successfully"
 
 # ===================== PHASE 7: FLUTTER =====================
 header "PHASE 7: FLUTTER APP INTEGRATION"

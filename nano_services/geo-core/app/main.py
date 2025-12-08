@@ -3,18 +3,16 @@
 خدمة المعالجة الجغرافية والمساحية مع تكامل قاعدة البيانات
 """
 import math
-from datetime import date
 from typing import Any, Dict, List, Optional
-from uuid import UUID
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-# Try to import from shared library
+# Try to import from shared library - imports marked as potentially unused with noqa
 try:
     from sahool_shared.database import DatabaseManager
-    from sahool_shared.models import Field as FieldModel, Region, Farmer
+    from sahool_shared.models import Field as FieldModel, Region, Farmer  # noqa: F401
     SHARED_LIB_AVAILABLE = True
 except ImportError:
     SHARED_LIB_AVAILABLE = False
@@ -39,6 +37,7 @@ app.add_middleware(
 # ============================================================
 # Pydantic Models
 # ============================================================
+
 
 class AreaResponse(BaseModel):
     """نموذج استجابة حساب المساحة"""
@@ -174,7 +173,7 @@ def calculate_area_from_coordinates(coordinates: List[List[float]]) -> Dict:
         j = (i + 1) % n
         dx = (polygon[j][0] - polygon[i][0]) * lon_factor
         dy = (polygon[j][1] - polygon[i][1]) * lat_factor
-        perimeter_m += math.sqrt(dx*dx + dy*dy)
+        perimeter_m += math.sqrt(dx * dx + dy * dy)
 
     # Centroid and bounding box
     cx = sum(p[0] for p in polygon) / n
@@ -206,8 +205,8 @@ def haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> fl
     delta_lat = math.radians(lat2 - lat1)
     delta_lon = math.radians(lon2 - lon1)
 
-    a = math.sin(delta_lat/2)**2 + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(delta_lon/2)**2
-    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+    a = math.sin(delta_lat / 2)**2 + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(delta_lon / 2)**2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
     return R * c
 

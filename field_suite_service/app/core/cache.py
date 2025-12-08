@@ -8,7 +8,7 @@ import asyncio
 import json
 import hashlib
 import time
-from typing import Any, Optional, TypeVar, Callable, Union
+from typing import Any, Optional, TypeVar, Callable
 from dataclasses import dataclass, field
 from functools import wraps
 from abc import ABC, abstractmethod

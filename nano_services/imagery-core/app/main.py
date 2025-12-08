@@ -2,8 +2,7 @@
 سهول اليمن - Imagery Core Service v2.0
 خدمة صور الأقمار الصناعية وتحليل NDVI مع تكامل قاعدة البيانات
 """
-import os
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from datetime import date, datetime, timedelta
@@ -11,10 +10,10 @@ from typing import Optional, List, Dict, Any
 from uuid import uuid4
 import random
 
-# Try to import from shared library
+# Try to import from shared library - imports marked as potentially unused with noqa
 try:
-    from sahool_shared.database import get_async_db_session
-    from sahool_shared.models import NDVIResult, Field as FieldModel
+    from sahool_shared.database import get_async_db_session  # noqa: F401
+    from sahool_shared.models import NDVIResult, Field as FieldModel  # noqa: F401
     SHARED_LIB_AVAILABLE = True
 except ImportError:
     SHARED_LIB_AVAILABLE = False
@@ -49,6 +48,7 @@ app.add_middleware(
 # Pydantic Models
 # ============================================================
 
+
 class NDVITileResponse(BaseModel):
     """استجابة بلاطة NDVI"""
     field_id: str
@@ -64,6 +64,7 @@ class NDVITileResponse(BaseModel):
     processing_level: str
     quality_score: float = Field(..., ge=0, le=100)
 
+
 class NDVIZone(BaseModel):
     """منطقة NDVI"""
     zone_id: str
@@ -72,6 +73,7 @@ class NDVIZone(BaseModel):
     ndvi_range: tuple
     description_ar: str
     color: str
+
 
 class NDVIAnalysis(BaseModel):
     """تحليل NDVI الشامل"""
@@ -93,6 +95,7 @@ class NDVIAnalysis(BaseModel):
     recommendations: List[str]
     comparison_to_previous: Optional[Dict[str, Any]] = None
 
+
 class NDVIHistoryPoint(BaseModel):
     """نقطة في سجل NDVI"""
     date: date
@@ -102,6 +105,7 @@ class NDVIHistoryPoint(BaseModel):
     cloud_coverage: float
     satellite: str
     quality: str
+
 
 class NDVIHistoryResponse(BaseModel):
     """استجابة سجل NDVI"""
@@ -115,6 +119,7 @@ class NDVIHistoryResponse(BaseModel):
     avg_ndvi: float
     best_period: Optional[str] = None
     worst_period: Optional[str] = None
+
 
 class ImageMetadata(BaseModel):
     """بيانات الصورة الوصفية"""
@@ -130,6 +135,7 @@ class ImageMetadata(BaseModel):
     footprint_wkt: Optional[str] = None
     quality_indicator: str
 
+
 class VegetationIndex(BaseModel):
     """مؤشر الغطاء النباتي"""
     index_name: str
@@ -137,6 +143,7 @@ class VegetationIndex(BaseModel):
     value: float
     interpretation: str
     interpretation_ar: str
+
 
 class StressDetection(BaseModel):
     """كشف الإجهاد"""
@@ -147,9 +154,11 @@ class StressDetection(BaseModel):
     location_description: str
     recommendation_ar: str
 
+
 # ============================================================
 # Yemen Data
 # ============================================================
+
 
 CROP_NDVI_RANGES = {
     "قمح": {"healthy": (0.5, 0.75), "moderate": (0.35, 0.5), "stressed": (0.2, 0.35)},
@@ -172,6 +181,7 @@ SATELLITES = [
 # Helper Functions
 # ============================================================
 
+
 def get_health_status(ndvi: float, crop_type: str = "قمح") -> tuple:
     """تحديد حالة الصحة من NDVI"""
     ranges = CROP_NDVI_RANGES.get(crop_type, CROP_NDVI_RANGES["قمح"])
@@ -182,6 +192,7 @@ def get_health_status(ndvi: float, crop_type: str = "قمح") -> tuple:
         return "moderate", "متوسط", 50 + random.uniform(0, 30)
     else:
         return "stressed", "مجهد", 20 + random.uniform(0, 25)
+
 
 def generate_zones(ndvi_mean: float) -> List[NDVIZone]:
     """توليد مناطق NDVI"""
@@ -225,9 +236,11 @@ def generate_zones(ndvi_mean: float) -> List[NDVIZone]:
 
     return zones
 
+
 # ============================================================
 # Endpoints
 # ============================================================
+
 
 @app.get("/health")
 async def health():
@@ -240,6 +253,7 @@ async def health():
         "satellites": [s["name"] for s in SATELLITES],
         "timestamp": datetime.utcnow().isoformat()
     }
+
 
 @app.get("/api/v1/ndvi/{field_id}", response_model=NDVITileResponse)
 async def get_ndvi_tile(
@@ -273,6 +287,7 @@ async def get_ndvi_tile(
         processing_level="L2A",
         quality_score=round(quality_score, 1)
     )
+
 
 @app.get("/api/v1/ndvi/{field_id}/history", response_model=NDVIHistoryResponse)
 async def get_ndvi_history(
@@ -361,6 +376,7 @@ async def get_ndvi_history(
         worst_period=worst_date.strftime("%Y-%m")
     )
 
+
 @app.post("/api/v1/ndvi/analyze", response_model=NDVIAnalysis)
 async def analyze_ndvi(payload: dict):
     """تحليل NDVI الشامل للحقل"""
@@ -421,6 +437,7 @@ async def analyze_ndvi(payload: dict):
         }
     )
 
+
 @app.get("/api/v1/imagery/available")
 async def get_available_imagery(
     lat: float = Query(..., description="خط العرض"),
@@ -466,6 +483,7 @@ async def get_available_imagery(
         "count": len(images),
         "satellites_available": list(set(img.satellite for img in images))
     }
+
 
 @app.get("/api/v1/indices/{field_id}")
 async def get_vegetation_indices(
@@ -515,6 +533,7 @@ async def get_vegetation_indices(
         "primary_index": "NDVI",
         "satellite": random.choice(["Sentinel-2A", "Sentinel-2B"])
     }
+
 
 @app.post("/api/v1/stress/detect")
 async def detect_stress(payload: dict):
