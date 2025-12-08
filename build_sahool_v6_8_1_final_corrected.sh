@@ -120,6 +120,7 @@ EOF
     warn "Admin credentials stored in .env file - DO NOT share or commit this file!"
     log ".env created with secure random passwords"
     warn "A random ADMIN password was generated and stored in .env (ADMIN_SEED_PASSWORD). Please retrieve it securely from the .env file and store it in a secure secret manager."
+    warn "ADMIN PASSWORD: $ADMIN_PASS  |  SAVE THIS SECURELY!"
 }
 
 # ===================== DATABASE SCHEMA =====================

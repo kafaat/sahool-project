@@ -293,6 +293,7 @@ jobs:
           fi
 
       - name: Deploy to Staging Server
+        if: steps.check-secrets.outputs.skip != 'true'
         if: steps.check-secrets.outputs.configured == 'true'
         if: steps.check-secrets.outputs.skip != 'true'
         uses: appleboy/ssh-action@v1.0.0
@@ -307,6 +308,10 @@ jobs:
 
       - name: Deployment skipped notice
         if: steps.check-secrets.outputs.skip == 'true'
+        run: |
+          echo "::notice::Staging deployment skipped - configure STAGING_HOST, STAGING_USER, and STAGING_SSH_KEY secrets to enable"
+      - name: Verify Staging Health
+        if: steps.check-secrets.outputs.configured == 'true'
         run: |
           echo "::notice::Staging deployment skipped - configure STAGING_HOST, STAGING_USER, and STAGING_SSH_KEY secrets to enable"
 
@@ -347,6 +352,7 @@ jobs:
           fi
 
       - name: Deploy to Production Server
+        if: steps.check-secrets.outputs.skip != 'true'
         if: steps.check-secrets.outputs.configured == 'true'
         if: steps.check-secrets.outputs.skip != 'true'
         uses: appleboy/ssh-action@v1.0.0
@@ -360,12 +366,21 @@ jobs:
             ./scripts/deploy/deploy.sh production deploy
 
       - name: Notify Success
+        if: success() && steps.check-secrets.outputs.skip != 'true'
         if: success() && steps.check-secrets.outputs.configured == 'true'
         if: success() && steps.check-secrets.outputs.skip != 'true'
         run: |
           echo "✅ Production deployment successful!"
 
       - name: Notify Failure
+        if: failure() && steps.check-secrets.outputs.skip != 'true'
+        run: |
+          echo "❌ Production deployment failed!"
+
+      - name: Deployment skipped notice
+        if: steps.check-secrets.outputs.skip == 'true'
+        run: |
+          echo "::notice::Production deployment skipped - configure PRODUCTION_HOST, PRODUCTION_USER, and PRODUCTION_SSH_KEY secrets to enable"
         if: failure() && steps.check-secrets.outputs.configured == 'true'
         if: failure() && steps.check-secrets.outputs.skip != 'true'
         run: |
