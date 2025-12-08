@@ -4,9 +4,65 @@ Integration Tests for Sahool Yemen Services
 """
 
 import pytest
+import sys
+import importlib.util
 from datetime import date
 from uuid import uuid4
 from unittest.mock import AsyncMock, MagicMock, patch
+from pathlib import Path
+
+# Dynamically resolve base directory
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
+
+
+def _get_service_app(service_name: str):
+    """
+    Dynamically load a service app for testing.
+    
+    Args:
+        service_name: Name of the service (e.g., 'weather-core', 'geo-core')
+    
+    Returns:
+        FastAPI app instance
+        
+    Raises:
+        pytest.skip: If service is not available
+    """
+    service_path = BASE_DIR / 'nano_services' / service_name
+    main_path = service_path / 'app' / 'main.py'
+    
+    if not main_path.exists():
+        pytest.skip(f"Service {service_name} not found at {service_path}")
+    
+    # Add service path temporarily for import resolution
+    service_path_str = str(service_path)
+    path_added = False
+    if service_path_str not in sys.path:
+        sys.path.insert(0, service_path_str)
+        path_added = True
+    
+    try:
+        # Use importlib for safer dynamic import with unique module name
+        module_name = f"app.main.{service_name.replace('-', '_')}"
+        spec = importlib.util.spec_from_file_location(module_name, main_path)
+        if spec is None or spec.loader is None:
+            pytest.skip(f"Service {service_name} module spec could not be loaded")
+        
+        module = importlib.util.module_from_spec(spec)
+        # Use unique module name to avoid conflicts between service tests
+        sys.modules[module_name] = module
+        spec.loader.exec_module(module)
+        
+        if not hasattr(module, 'app'):
+            pytest.skip(f"Service {service_name} does not export 'app'")
+        
+        return module.app
+    except (ImportError, ModuleNotFoundError, NameError, AttributeError) as e:
+        pytest.skip(f"Service {service_name} not available: {e}")
+    finally:
+        # Clean up sys.path to avoid import pollution
+        if path_added and service_path_str in sys.path:
+            sys.path.remove(service_path_str)
 
 
 class TestWeatherServiceIntegration:
@@ -26,12 +82,7 @@ class TestWeatherServiceIntegration:
         """Test weather service health endpoint."""
         from fastapi.testclient import TestClient
 
-        # Import dynamically to avoid import errors
-        import sys
-        sys.path.insert(0, '/home/user/sahool-project/nano_services/weather-core')
-
-        from app.main import app
-
+        app = _get_service_app('weather-core')
         client = TestClient(app)
         response = client.get("/health")
 
@@ -46,11 +97,7 @@ class TestWeatherServiceIntegration:
         """Test getting weather by region."""
         from fastapi.testclient import TestClient
 
-        import sys
-        sys.path.insert(0, '/home/user/sahool-project/nano_services/weather-core')
-
-        from app.main import app
-
+        app = _get_service_app('weather-core')
         client = TestClient(app)
         response = client.get("/api/v1/weather/regions/1")
 
@@ -65,11 +112,7 @@ class TestWeatherServiceIntegration:
         """Test weather forecast endpoint."""
         from fastapi.testclient import TestClient
 
-        import sys
-        sys.path.insert(0, '/home/user/sahool-project/nano_services/weather-core')
-
-        from app.main import app
-
+        app = _get_service_app('weather-core')
         client = TestClient(app)
         response = client.get("/api/v1/weather/regions/1/forecast?days=5")
 
@@ -83,11 +126,7 @@ class TestWeatherServiceIntegration:
         """Test weather alerts endpoint."""
         from fastapi.testclient import TestClient
 
-        import sys
-        sys.path.insert(0, '/home/user/sahool-project/nano_services/weather-core')
-
-        from app.main import app
-
+        app = _get_service_app('weather-core')
         client = TestClient(app)
         response = client.get("/api/v1/weather/alerts")
 
@@ -104,11 +143,7 @@ class TestGeoServiceIntegration:
         """Test geo service health endpoint."""
         from fastapi.testclient import TestClient
 
-        import sys
-        sys.path.insert(0, '/home/user/sahool-project/nano_services/geo-core')
-
-        from app.main import app
-
+        app = _get_service_app('geo-core')
         client = TestClient(app)
         response = client.get("/health")
 
@@ -122,11 +157,7 @@ class TestGeoServiceIntegration:
         """Test area computation."""
         from fastapi.testclient import TestClient
 
-        import sys
-        sys.path.insert(0, '/home/user/sahool-project/nano_services/geo-core')
-
-        from app.main import app
-
+        app = _get_service_app('geo-core')
         client = TestClient(app)
 
         # Simple polygon in Yemen coordinates
@@ -155,11 +186,7 @@ class TestGeoServiceIntegration:
         """Test elevation endpoint."""
         from fastapi.testclient import TestClient
 
-        import sys
-        sys.path.insert(0, '/home/user/sahool-project/nano_services/geo-core')
-
-        from app.main import app
-
+        app = _get_service_app('geo-core')
         client = TestClient(app)
         response = client.get("/api/v1/geo/elevation?lat=15.3&lon=44.2")
 
@@ -174,11 +201,7 @@ class TestGeoServiceIntegration:
         """Test distance calculation."""
         from fastapi.testclient import TestClient
 
-        import sys
-        sys.path.insert(0, '/home/user/sahool-project/nano_services/geo-core')
-
-        from app.main import app
-
+        app = _get_service_app('geo-core')
         client = TestClient(app)
         response = client.get(
             "/api/v1/geo/distance?lat1=15.3&lon1=44.2&lat2=13.5&lon2=44.0"
@@ -196,11 +219,7 @@ class TestGeoServiceIntegration:
         """Test zone info endpoint."""
         from fastapi.testclient import TestClient
 
-        import sys
-        sys.path.insert(0, '/home/user/sahool-project/nano_services/geo-core')
-
-        from app.main import app
-
+        app = _get_service_app('geo-core')
         client = TestClient(app)
         response = client.get("/api/v1/geo/zone-info?lat=15.3&lon=44.2")
 
@@ -215,11 +234,7 @@ class TestGeoServiceIntegration:
         """Test geometry validation."""
         from fastapi.testclient import TestClient
 
-        import sys
-        sys.path.insert(0, '/home/user/sahool-project/nano_services/geo-core')
-
-        from app.main import app
-
+        app = _get_service_app('geo-core')
         client = TestClient(app)
 
         # Valid point
@@ -235,11 +250,7 @@ class TestGeoServiceIntegration:
         """Test invalid geometry validation."""
         from fastapi.testclient import TestClient
 
-        import sys
-        sys.path.insert(0, '/home/user/sahool-project/nano_services/geo-core')
-
-        from app.main import app
-
+        app = _get_service_app('geo-core')
         client = TestClient(app)
 
         # Invalid - outside Yemen
