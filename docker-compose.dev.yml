@@ -182,17 +182,81 @@ services:
     container_name: sahool-dev-advisor
     restart: unless-stopped
     environment:
-      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/sahool_dev
+      - DATABASE_URL=${DATABASE_URL:-postgresql://sahool_admin:sahool_dev_password_2024@postgres:5432/sahool}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
       - ENV=development
+      - CORS_ORIGINS=${CORS_ORIGINS:-}
     ports:
       - "8008:8000"
     volumes:
       - ./services/advisor:/app
+      - ./libs-shared:/app/libs-shared
     depends_on:
       postgres:
         condition: service_healthy
     networks:
       - sahool-dev
+
+  auth-service:
+    build:
+      context: ./services/auth-service
+    container_name: sahool-dev-auth
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=${DATABASE_URL:-postgresql://sahool_admin:sahool_dev_password_2024@postgres:5432/sahool}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-sahool_dev_jwt_secret_key_change_in_production_2024}
+      - JWT_ACCESS_TOKEN_EXPIRE_MINUTES=${JWT_ACCESS_TOKEN_EXPIRE_MINUTES:-30}
+      - JWT_REFRESH_TOKEN_EXPIRE_DAYS=${JWT_REFRESH_TOKEN_EXPIRE_DAYS:-7}
+      - CORS_ORIGINS=${CORS_ORIGINS:-}
+      - ENV=development
+    ports:
+      - "8009:8000"
+    volumes:
+      - ./services/auth-service:/app
+      - ./libs-shared:/app/libs-shared
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - sahool-dev
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  ndvi-service:
+    build:
+      context: .
+      dockerfile: services/ndvi/Dockerfile
+    container_name: sahool-dev-ndvi
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=${DATABASE_URL:-postgresql://sahool_admin:sahool_dev_password_2024@postgres:5432/sahool}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
+      - CORS_ORIGINS=${CORS_ORIGINS:-}
+      - ENV=development
+      - SAHOOL_ENV=local
+    ports:
+      - "8010:8000"
+    volumes:
+      - ./services/ndvi:/app/services/ndvi
+      - ./libs-shared:/app/libs-shared
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - sahool-dev
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   # ============================================================
   # Frontend Development - واجهة المستخدم

@@ -3,7 +3,6 @@ Unit tests for Imagery Core Service
 سهول اليمن - اختبارات خدمة الصور
 """
 import pytest
-from datetime import date
 from fastapi.testclient import TestClient
 from app.main import app
 
