@@ -87,8 +87,11 @@ done
 
 # ===================== LOAD .ENV =====================
 if [[ -f "$PROJECT_DIR/.env" ]]; then
-    source "$PROJECT_DIR/.env"
-    ADMIN_PASS="$ADMIN_SEED_PASSWORD"
+    ADMIN_PASS="$(grep -E '^ADMIN_SEED_PASSWORD=' "$PROJECT_DIR/.env" | cut -d'=' -f2- | tr -d '"' | tail -n1)"
+    if [[ -z "$ADMIN_PASS" ]]; then
+        warn "ADMIN_SEED_PASSWORD not found in .env, using default password"
+        ADMIN_PASS="password"
+    fi
 else
     warn ".env not found, using default password"
     ADMIN_PASS="password"

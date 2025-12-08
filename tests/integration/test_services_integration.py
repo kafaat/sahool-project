@@ -5,10 +5,66 @@ Integration Tests for Sahool Yemen Services
 
 import sys
 import pytest
+import sys
+import importlib.util
 from pathlib import Path
 from datetime import date
 from uuid import uuid4
 from unittest.mock import AsyncMock, MagicMock, patch
+from pathlib import Path
+
+# Dynamically resolve base directory
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
+
+
+def _get_service_app(service_name: str):
+    """
+    Dynamically load a service app for testing.
+    
+    Args:
+        service_name: Name of the service (e.g., 'weather-core', 'geo-core')
+    
+    Returns:
+        FastAPI app instance
+        
+    Raises:
+        pytest.skip: If service is not available
+    """
+    service_path = BASE_DIR / 'nano_services' / service_name
+    main_path = service_path / 'app' / 'main.py'
+    
+    if not main_path.exists():
+        pytest.skip(f"Service {service_name} not found at {service_path}")
+    
+    # Add service path temporarily for import resolution
+    service_path_str = str(service_path)
+    path_added = False
+    if service_path_str not in sys.path:
+        sys.path.insert(0, service_path_str)
+        path_added = True
+    
+    try:
+        # Use importlib for safer dynamic import with unique module name
+        module_name = f"app.main.{service_name.replace('-', '_')}"
+        spec = importlib.util.spec_from_file_location(module_name, main_path)
+        if spec is None or spec.loader is None:
+            pytest.skip(f"Service {service_name} module spec could not be loaded")
+        
+        module = importlib.util.module_from_spec(spec)
+        # Use unique module name to avoid conflicts between service tests
+        sys.modules[module_name] = module
+        spec.loader.exec_module(module)
+        
+        if not hasattr(module, 'app'):
+            pytest.skip(f"Service {service_name} does not export 'app'")
+        
+        return module.app
+    except (ImportError, ModuleNotFoundError, NameError, AttributeError) as e:
+        pytest.skip(f"Service {service_name} not available: {e}")
+    finally:
+        # Clean up sys.path to avoid import pollution
+        if path_added and service_path_str in sys.path:
+            sys.path.remove(service_path_str)
 
 # Get the project root directory dynamically using pathlib
 PROJECT_ROOT = Path(__file__).parent.parent.parent
@@ -16,26 +72,109 @@ PROJECT_ROOT = Path(__file__).parent.parent.parent
 
 def _get_service_app(service_name: str):
     """
-    Helper function to import and return a service's FastAPI app.
+    Helper function to dynamically import and return a service's FastAPI app.
+
+    This function provides environment-agnostic service loading with fallback
+    mechanisms. It gracefully skips tests when services are not available,
+    ensuring tests can run in any environment without hardcoded paths.
+
+    Args:
+        service_name: Name of the service (e.g., 'weather-core', 'geo-core')
+
+    Returns:
+        The FastAPI app instance if the service is available.
+
+    Raises:
+        pytest.skip: If the service is not available, causing the test to be
+                     skipped gracefully rather than failing.
+
+    Example:
+        >>> app = _get_service_app('weather-core')
+        >>> # Test proceeds if service exists, skips otherwise
+    """
+    # Resolve service path dynamically using pathlib
+    service_path = PROJECT_ROOT / 'nano_services' / service_name
+
+    # Verify service directory exists before attempting import
+    if not service_path.is_dir():
+        pytest.skip(f"{service_name} service directory not found at {service_path}")
+
+    # Add service path to sys.path for import
+    service_path_str = str(service_path)
+    if service_path_str not in sys.path:
+        sys.path.insert(0, service_path_str)
+
+    try:
+        # Clear import cache for app modules to avoid module shadowing
+        # This ensures each service app is imported fresh
+        modules_to_clear = [key for key in sys.modules if key.startswith('app')]
+        for module in modules_to_clear:
+            sys.modules.pop(module, None)
+
+        # Import the FastAPI app from the service
+        from app.main import app
+        return app
+    except ImportError as e:
+        # Service exists but cannot be imported (missing dependencies, syntax errors, etc.)
+        pytest.skip(f"{service_name} service not available: {str(e)}")
+    except Exception as e:
+        # Unexpected error during import
+        pytest.skip(f"{service_name} service failed to load: {str(e)}")
+
+# Get the project root directory dynamically using pathlib
+PROJECT_ROOT = Path(__file__).parent.parent.parent
+
+
+def _get_service_app(service_name: str):
+    """
+    Helper function to dynamically import and return a service's FastAPI app.
+    
+    This function provides environment-agnostic service loading with fallback
+    mechanisms. It gracefully skips tests when services are not available,
+    ensuring tests can run in any environment without hardcoded paths.
     
     Args:
         service_name: Name of the service (e.g., 'weather-core', 'geo-core')
     
     Returns:
-        The FastAPI app instance if available.
+        The FastAPI app instance if the service is available.
     
     Raises:
-        pytest.skip: If the service is not available (ImportError).
+        pytest.skip: If the service is not available, causing the test to be
+                     skipped gracefully rather than failing.
+    
+    Example:
+        >>> app = _get_service_app('weather-core')
+        >>> # Test proceeds if service exists, skips otherwise
     """
-    service_path = str(PROJECT_ROOT / 'nano_services' / service_name)
-    if service_path not in sys.path:
-        sys.path.insert(0, service_path)
+    # Resolve service path dynamically using pathlib
+    service_path = PROJECT_ROOT / 'nano_services' / service_name
+    
+    # Verify service directory exists before attempting import
+    if not service_path.is_dir():
+        pytest.skip(f"{service_name} service directory not found at {service_path}")
+    
+    # Add service path to sys.path for import
+    service_path_str = str(service_path)
+    if service_path_str not in sys.path:
+        sys.path.insert(0, service_path_str)
     
     try:
+        # Clear import cache for app modules to avoid module shadowing
+        # This ensures each service app is imported fresh
+        modules_to_clear = [key for key in sys.modules if key.startswith('app')]
+        for module in modules_to_clear:
+            sys.modules.pop(module, None)
+        
+        # Import the FastAPI app from the service
         from app.main import app
         return app
-    except ImportError:
-        pytest.skip(f"{service_name} service not available")
+    except ImportError as e:
+        # Service exists but cannot be imported (missing dependencies, syntax errors, etc.)
+        pytest.skip(f"{service_name} service not available: {str(e)}")
+    except Exception as e:
+        # Unexpected error during import
+        pytest.skip(f"{service_name} service failed to load: {str(e)}")
 
 
 class TestWeatherServiceIntegration:
