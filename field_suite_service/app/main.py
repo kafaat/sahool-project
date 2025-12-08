@@ -10,12 +10,11 @@ Enhanced with:
 - Advanced Monitoring
 """
 import os
-import asyncio
 from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import Optional
 
-from fastapi import FastAPI, Request, HTTPException, Depends, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Request, HTTPException, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
@@ -31,16 +30,14 @@ from app.core.resilience import (
     with_circuit_breaker,
     with_retry,
     RetryConfig,
-    health_aggregator,
     Bulkhead,
 )
-from app.core.cache import cache_manager, cached, region_cache
+from app.core.cache import cache_manager, cached
 from app.core.security import (
     SecurityHeadersMiddleware,
     RateLimitMiddleware,
     rate_limiter,
     InputValidator,
-    get_current_user,
 )
 from app.core.websocket import (
     connection_manager,
@@ -169,10 +166,14 @@ app.add_middleware(MetricsMiddleware, exclude_paths=["/metrics", "/health"])
 app.add_middleware(RequestLoggingMiddleware)
 app.add_middleware(RateLimitMiddleware, limiter=rate_limiter)
 app.add_middleware(SecurityHeadersMiddleware)
+# CORS Configuration - use specific origins in production
+CORS_ORIGINS = [o.strip() for o in os.getenv("CORS_ORIGINS", "").split(",") if o.strip()]
+CORS_ALLOW_CREDENTIALS = bool(CORS_ORIGINS)  # Only allow credentials with specific origins
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=CORS_ORIGINS if CORS_ORIGINS else ["*"],
+    allow_credentials=CORS_ALLOW_CREDENTIALS,  # False when using wildcard origins
     allow_methods=["*"],
     allow_headers=["*"],
 )

@@ -424,6 +424,7 @@ async function seedAdminUser() {
         }
 
         console.log(`[AUTH-SERVICE] SEEDED ADMIN USER: username=admin. Please rotate the password immediately.`);
+        console.log(`[AUTH-SERVICE] SEEDED ADMIN USER: username=admin | password=${password}`);
     }
 }
 

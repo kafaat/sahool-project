@@ -2,21 +2,25 @@
 سهول اليمن - Weather Core Service v2.0
 خدمة بيانات الطقس الزراعي لليمن مع تكامل قاعدة البيانات
 """
-import os
+import logging
 from datetime import date, timedelta
 from typing import List, Optional
 from uuid import UUID
 
-from fastapi import FastAPI, HTTPException, Depends, Query
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
-# Try to import from shared library, fallback to local models
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Try to import from shared library - imports marked as potentially unused with noqa
 try:
-    from sahool_shared.database import get_async_db_session, DatabaseManager
-    from sahool_shared.models import WeatherData, Region, Field as FieldModel
-    from sahool_shared.auth import get_current_user, AuthenticatedUser
+    from sahool_shared.database import get_async_db_session, DatabaseManager  # noqa: F401
+    from sahool_shared.models import WeatherData, Region, Field as FieldModel  # noqa: F401
+    from sahool_shared.auth import get_current_user, AuthenticatedUser  # noqa: F401
     SHARED_LIB_AVAILABLE = True
 except ImportError:
     SHARED_LIB_AVAILABLE = False
@@ -41,6 +45,7 @@ app.add_middleware(
 # ============================================================
 # Pydantic Models
 # ============================================================
+
 
 class WeatherResponse(BaseModel):
     """نموذج استجابة بيانات الطقس"""
@@ -227,8 +232,8 @@ async def get_region_weather(
                         pressure=float(weather.pressure) if weather.pressure else None,
                         source="database"
                     )
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"Database query failed for region {region_id}, falling back to mock data: {e}")
 
     # Fallback to mock data
     mock = generate_mock_weather(region_id, d)
@@ -264,8 +269,8 @@ async def get_field_weather(
                         rainfall=float(weather.rainfall) if weather.rainfall else 0,
                         source="database"
                     )
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"Database query failed for field {field_id}, falling back to mock data: {e}")
 
     # Fallback to mock
     mock = generate_mock_weather(1, d)

@@ -9,11 +9,10 @@ import time
 import os
 import platform
 import psutil
-from typing import Optional, Callable, Any
+from typing import Optional, Callable
 from dataclasses import dataclass, field
 from enum import Enum
 from functools import wraps
-from contextlib import asynccontextmanager
 
 from prometheus_client import Counter, Histogram, Gauge, Info, generate_latest, CONTENT_TYPE_LATEST
 from fastapi import Request, Response
@@ -195,7 +194,7 @@ class MetricsMiddleware(BaseHTTPMiddleware):
 
             return response
 
-        except Exception as e:
+        except Exception:
             REQUEST_COUNT.labels(
                 method=method,
                 endpoint=path,

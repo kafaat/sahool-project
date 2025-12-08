@@ -5,6 +5,7 @@ Event Bus Implementation
 
 import asyncio
 import json
+import logging
 from abc import ABC, abstractmethod
 from datetime import datetime
 from typing import Any, Callable, Dict, List, Optional, Type, TypeVar
@@ -13,6 +14,9 @@ import os
 
 from pydantic import BaseModel, Field
 import redis.asyncio as redis
+
+# Configure logger
+logger = logging.getLogger(__name__)
 
 
 class Event(BaseModel):
@@ -80,7 +84,7 @@ class InMemoryEventBus(EventBus):
                 if asyncio.iscoroutine(result):
                     await result
             except Exception as e:
-                print(f"Error in event handler: {e}")
+                logger.error(f"Error in event handler for event {event.type}: {e}", exc_info=True)
 
     async def subscribe(self, event_type: str, handler: EventHandler) -> None:
         """Subscribe to specific event type."""
