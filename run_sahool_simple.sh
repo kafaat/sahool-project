@@ -33,7 +33,7 @@ if [[ ! -f ".env" ]]; then
 fi
 
 # Determine docker compose command
-if docker compose version &>/dev/null; then
+if docker compose version &>/dev/null 2>&1; then
     COMPOSE_CMD="docker compose"
 else
     COMPOSE_CMD="docker-compose"
@@ -99,11 +99,15 @@ echo -e "\n${CYAN}════════════════════�
 log "ALL PHASES COMPLETED SUCCESSFULLY!"
 echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
 
-# Show credentials hint
+# Show credentials
 if [[ -f ".env" ]]; then
+    source .env
     echo -e "\n${YELLOW}LOGIN CREDENTIALS:${NC}"
     echo -e "  Username: ${CYAN}admin${NC}"
-    echo -e "  Password: ${CYAN}See .env file (ADMIN_SEED_PASSWORD)${NC}"
+    if [[ "${SHOW_ADMIN_PASSWORD:-}" == "1" ]]; then
+        echo -e "  Password: ${CYAN}$ADMIN_SEED_PASSWORD${NC}"
+    fi
+    echo -e "  Password: ${CYAN}$ADMIN_SEED_PASSWORD${NC}"
 fi
 
 echo -e "\n${YELLOW}NEXT STEPS:${NC}"

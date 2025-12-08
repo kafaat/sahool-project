@@ -6,23 +6,27 @@ Provides astronomical calculations for agriculture (moon phases, sun position, e
 """
 
 import os
+import sys
 from contextlib import asynccontextmanager
 from datetime import datetime
-from typing import List, Optional
+from typing import Optional
 
-from fastapi import FastAPI, Query
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
-
-import sys
 sys.path.insert(0, "/app/libs-shared")
 
+from fastapi import FastAPI, Query  # noqa: E402
+from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
+from pydantic import BaseModel, Field  # noqa: E402
+
 try:
-    from sahool_shared.utils import setup_logging, get_logger
+    from sahool_shared.utils import setup_logging, get_logger  # noqa: E402
 except ImportError:
     import logging
-    def setup_logging(service_name: str): pass
-    def get_logger(name: str): return logging.getLogger(name)
+
+    def setup_logging(service_name: str):
+        pass
+
+    def get_logger(name: str):
+        return logging.getLogger(name)
 
 logger = get_logger(__name__)
 
@@ -40,7 +44,7 @@ class Location(BaseModel):
 class MoonPhase(BaseModel):
     """Moon phase information."""
     date: str
-    phase: str = Field(..., description="Phase: new, waxing_crescent, first_quarter, waxing_gibbous, full, waning_gibbous, last_quarter, waning_crescent")
+    phase: str = Field(..., description="Moon phase name")
     illumination: float = Field(..., ge=0, le=100)
     age_days: float
 
