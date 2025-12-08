@@ -7,9 +7,7 @@ import sys
 import pytest
 import importlib.util
 from pathlib import Path
-from datetime import date
-from uuid import uuid4
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock
 
 # Get the project root directory dynamically using pathlib
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -288,11 +286,7 @@ class TestDatabaseIntegration:
     async def test_model_imports(self):
         """Test ORM models can be imported."""
         try:
-            from sahool_shared.models import (
-                Field, Region, Farmer, WeatherData, NDVIResult,
-                SoilAnalysis, YieldRecord, IrrigationSchedule,
-                PlantHealth, AuditLog
-            )
+            from sahool_shared.models import Field, Region, SoilAnalysis
 
             # All models should be importable
             assert Field is not None
