@@ -121,6 +121,36 @@ def _get_service_app(service_name: str):
         # Unexpected error during import
         pytest.skip(f"{service_name} service failed to load: {str(e)}")
 
+# Get the project root directory dynamically using pathlib
+PROJECT_ROOT = Path(__file__).parent.parent.parent
+
+
+def _get_service_app(service_name: str):
+    """
+    Helper function to import and return a service's FastAPI app.
+    
+    Args:
+        service_name: Name of the service (e.g., 'weather-core', 'geo-core')
+    
+    Returns:
+        The FastAPI app instance if available.
+    
+    Raises:
+        pytest.skip: If the service is not available (ImportError).
+    """
+    service_path = str(PROJECT_ROOT / 'nano_services' / service_name)
+    if service_path not in sys.path:
+        sys.path.insert(0, service_path)
+    
+    try:
+        # Clear import cache for app and app.main to avoid shadowing
+        sys.modules.pop("app", None)
+        sys.modules.pop("app.main", None)
+        from app.main import app
+        return app
+    except ImportError:
+        pytest.skip(f"{service_name} service not available")
+
 
 class TestWeatherServiceIntegration:
     """Integration tests for Weather Core service."""
