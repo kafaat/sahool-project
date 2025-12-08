@@ -16,6 +16,10 @@ collect_ignore = ["setup.py"]
 collect_ignore = ["setup.py"]
 
 
+# Collection ignore - exclude setup.py from test collection
+collect_ignore = ["setup.py"]
+
+
 # =============================================================================
 # Yemen Data Fixtures
 # =============================================================================

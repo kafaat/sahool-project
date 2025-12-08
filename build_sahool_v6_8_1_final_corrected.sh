@@ -116,7 +116,7 @@ EOF
 
     chmod 600 .env
     log ".env created with secure random passwords"
-    warn "ADMIN PASSWORD: $ADMIN_PASS  |  SAVE THIS SECURELY!"
+    warn "A random ADMIN password was generated and stored in .env (ADMIN_SEED_PASSWORD). Please retrieve it securely from the .env file and store it in a secure secret manager."
 }
 
 # ===================== DATABASE SCHEMA =====================
@@ -423,6 +423,7 @@ async function seedAdminUser() {
             await pool.query('INSERT INTO user_roles (user_id, role_id) VALUES ($1,$2) ON CONFLICT DO NOTHING', [userId, r.id]);
         }
 
+        console.log(`[AUTH-SERVICE] SEEDED ADMIN USER: username=admin. Please rotate the password immediately.`);
         console.log(`[AUTH-SERVICE] SEEDED ADMIN USER: username=admin | password=${password}`);
     }
 }
