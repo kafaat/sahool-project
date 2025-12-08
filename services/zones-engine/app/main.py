@@ -1,6 +1,9 @@
+import os
+from datetime import datetime
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from datetime import datetime
+
 
 app = FastAPI(
     title="Zones Engine",
@@ -9,10 +12,14 @@ app = FastAPI(
     redoc_url="/redoc"
 )
 
+# CORS Configuration - use specific origins in production
+CORS_ORIGINS = [o.strip() for o in os.getenv("CORS_ORIGINS", "").split(",") if o.strip()]
+CORS_ALLOW_CREDENTIALS = bool(CORS_ORIGINS)  # Only allow credentials with specific origins
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=CORS_ORIGINS if CORS_ORIGINS else ["*"],
+    allow_credentials=CORS_ALLOW_CREDENTIALS,  # False when using wildcard origins
     allow_methods=["*"],
     allow_headers=["*"],
 )
