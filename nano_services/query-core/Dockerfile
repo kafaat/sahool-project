@@ -9,6 +9,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf 
 WORKDIR /app
 
 # Install shared library first
+COPY libs-shared ./libs-shared
 # NOTE: The Docker build context MUST be set to the project root so that 'libs-shared' is available.
 COPY libs-shared ./libs-shared
 # Fail early if libs-shared is missing
