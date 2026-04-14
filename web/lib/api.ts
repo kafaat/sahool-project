@@ -302,7 +302,7 @@ export async function fetchFieldWeather(
   fieldId: number | string,
 ) {
   try {
-    const res = await api.get(`/api/v1/weather/field/${fieldId}`, {
+    const res = await api.get(`/api/v1/weather/fields/${fieldId}`, {
       headers: { 'X-Tenant-ID': String(tenantId) },
     });
     return res.data;
