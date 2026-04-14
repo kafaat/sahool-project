@@ -2,7 +2,7 @@
 Audit Log Model - نموذج سجل التدقيق
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Optional
 import uuid
 
@@ -96,7 +96,7 @@ class AuditLog(Base, TenantMixin):
     # Timestamp
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
-        default=datetime.utcnow,
+        default=lambda: datetime.now(timezone.utc),
         index=True,
         comment="وقت الحدث"
     )

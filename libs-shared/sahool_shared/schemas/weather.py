@@ -3,7 +3,7 @@ Weather Schemas
 مخططات الطقس
 """
 
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from typing import List, Optional
 
 from pydantic import Field
@@ -33,7 +33,7 @@ class WeatherResponse(BaseSchema):
     location_type: str = "field"  # field or region
     current: WeatherData
     source: str = "OpenWeather"
-    retrieved_at: datetime = Field(default_factory=datetime.utcnow)
+    retrieved_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class WeatherForecast(BaseSchema):
@@ -45,7 +45,7 @@ class WeatherForecast(BaseSchema):
     forecast: List[WeatherData] = []
     forecast_days: int = 5
     source: str = "OpenWeather"
-    retrieved_at: datetime = Field(default_factory=datetime.utcnow)
+    retrieved_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     @property
     def is_favorable(self) -> bool:

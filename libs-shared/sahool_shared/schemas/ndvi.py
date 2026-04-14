@@ -3,7 +3,7 @@ NDVI Schemas
 مخططات NDVI
 """
 
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from typing import List, Optional
 from uuid import UUID
 
@@ -118,7 +118,7 @@ class NDVIAnalysis(BaseSchema):
     """NDVI analysis results."""
 
     field_id: UUID
-    analysis_date: datetime = Field(default_factory=datetime.utcnow)
+    analysis_date: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     current_ndvi: float
     previous_ndvi: Optional[float] = None
     change_percent: Optional[float] = None
