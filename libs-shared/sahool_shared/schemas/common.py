@@ -3,7 +3,7 @@ Common Pydantic Schemas
 مخططات Pydantic العامة
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Generic, List, Optional, TypeVar
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -59,7 +59,7 @@ class ErrorResponse(BaseSchema):
     message_ar: Optional[str] = Field(None, description="Error message in Arabic / رسالة الخطأ بالعربية")
     status_code: int = Field(500, description="HTTP status code")
     details: Optional[dict[str, Any]] = Field(None, description="Additional error details")
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     request_id: Optional[str] = Field(None, description="Request tracking ID")
     path: Optional[str] = Field(None, description="API endpoint path")
 
@@ -146,7 +146,7 @@ class HealthResponse(BaseSchema):
     status: str = "healthy"
     version: str
     service: str
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     checks: Optional[dict[str, Any]] = None
 
 
@@ -223,7 +223,7 @@ class DetailedHealthResponse(BaseSchema):
     version: str
     service: str
     environment: Optional[str] = None
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     uptime_seconds: Optional[float] = None
     checks: List[HealthCheckResult] = Field(default_factory=list)
 
