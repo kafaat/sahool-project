@@ -35,6 +35,7 @@ SERVICE_ROUTES = {
     "/api/v1/geo": os.getenv("GEO_SERVICE_URL", "http://geo-service:8000"),
     "/api/v1/zones": os.getenv("ZONES_SERVICE_URL", "http://zones-engine:8000"),
     "/api/v1/imagery": os.getenv("IMAGERY_SERVICE_URL", "http://imagery-service:8000"),
+    "/api/v1/agent": os.getenv("AGENT_SERVICE_URL", "http://agent-ai:8000"),
     "/api/v1/auth": os.getenv("AUTH_SERVICE_URL", "http://auth-service:8000"),
     "/api/v1/users": os.getenv("AUTH_SERVICE_URL", "http://auth-service:8000"),
     "/api/v1/tenants": os.getenv("AUTH_SERVICE_URL", "http://auth-service:8000"),
