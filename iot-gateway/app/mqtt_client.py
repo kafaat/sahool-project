@@ -7,7 +7,7 @@ import asyncio
 import json
 import logging
 from typing import Callable, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 
 try:
     import paho.mqtt.client as mqtt
@@ -133,7 +133,7 @@ class MQTTClient:
         
         # Add metadata
         data['device_id'] = device_id
-        data['timestamp'] = data.get('timestamp', datetime.utcnow().isoformat())
+        data['timestamp'] = data.get('timestamp', datetime.now(timezone.utc).isoformat())
         data['topic'] = topic
         
         # Process data

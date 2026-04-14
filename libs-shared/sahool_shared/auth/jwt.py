@@ -3,7 +3,7 @@ JWT Token Handling
 معالجة توكنات JWT
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 import uuid
 
@@ -55,7 +55,7 @@ class JWTHandler:
         extra_claims: Optional[dict[str, Any]] = None,
     ) -> str:
         """Create a new access token."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         expires = now + timedelta(minutes=self.access_token_expire_minutes)
 
         payload = {
@@ -80,7 +80,7 @@ class JWTHandler:
         role: str,
     ) -> str:
         """Create a new refresh token."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         expires = now + timedelta(days=self.refresh_token_expire_days)
 
         payload = {

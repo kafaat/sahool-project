@@ -2,7 +2,7 @@
 User and Tenant Models - نماذج المستخدم والمستأجر
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Optional
 import uuid
@@ -120,7 +120,7 @@ class Tenant(Base, TimestampMixin):
         """Check if subscription plan is active."""
         if not self.is_active:
             return False
-        if self.plan_expires_at and self.plan_expires_at < datetime.utcnow():
+        if self.plan_expires_at and self.plan_expires_at < datetime.now(timezone.utc):
             return False
         return True
 
@@ -239,4 +239,4 @@ class User(Base, TimestampMixin):
 
     def update_last_login(self) -> None:
         """Update last login timestamp."""
-        self.last_login = datetime.utcnow()
+        self.last_login = datetime.now(timezone.utc)

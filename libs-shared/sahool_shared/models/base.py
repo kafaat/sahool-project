@@ -3,7 +3,7 @@ Base SQLAlchemy Models and Mixins
 النماذج الأساسية والـ Mixins
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 import uuid
 
@@ -67,4 +67,4 @@ class SoftDeleteMixin:
     def soft_delete(self) -> None:
         """Mark record as deleted."""
         self.is_deleted = True
-        self.deleted_at = datetime.utcnow()
+        self.deleted_at = datetime.now(timezone.utc)

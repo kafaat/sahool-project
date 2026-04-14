@@ -2,7 +2,7 @@
 Alert Model - نموذج التنبيهات
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Optional
 import uuid
@@ -146,19 +146,19 @@ class Alert(Base, TimestampMixin, TenantMixin):
     def acknowledge(self) -> None:
         """Mark alert as acknowledged."""
         self.status = AlertStatus.ACKNOWLEDGED.value
-        self.acknowledged_at = datetime.utcnow()
+        self.acknowledged_at = datetime.now(timezone.utc)
 
     def resolve(self) -> None:
         """Mark alert as resolved."""
         self.status = AlertStatus.RESOLVED.value
-        self.resolved_at = datetime.utcnow()
+        self.resolved_at = datetime.now(timezone.utc)
 
     @property
     def is_active(self) -> bool:
         """Check if alert is still active."""
         if self.status != AlertStatus.ACTIVE.value:
             return False
-        if self.expires_at and self.expires_at < datetime.utcnow():
+        if self.expires_at and self.expires_at < datetime.now(timezone.utc):
             return False
         return True
 
