@@ -1,0 +1,95 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-primary: #059669;
+  --color-primary-dark: #047857;
+  --color-secondary: #0891b2;
+  --color-accent: #f59e0b;
+  --color-bg: #f9fafb;
+  --color-text: #111827;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-family: 'Tajawal', sans-serif;
+  direction: rtl;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-primary);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-primary-dark);
+}
+
+/* Leaflet map fixes for RTL */
+.leaflet-container {
+  direction: ltr;
+}
+
+.leaflet-control {
+  direction: ltr;
+}
+
+/* Card styles */
+.card {
+  @apply bg-white rounded-xl shadow-sm border border-gray-100 p-6;
+}
+
+.card-hover {
+  @apply transition-shadow hover:shadow-md;
+}
+
+/* Button styles */
+.btn {
+  @apply px-4 py-2 rounded-lg font-medium transition-colors;
+}
+
+.btn-primary {
+  @apply bg-emerald-600 text-white hover:bg-emerald-700;
+}
+
+.btn-secondary {
+  @apply bg-gray-100 text-gray-700 hover:bg-gray-200;
+}
+
+/* Status badges */
+.badge {
+  @apply px-2 py-1 rounded-full text-xs font-medium;
+}
+
+.badge-success {
+  @apply bg-green-100 text-green-700;
+}
+
+.badge-warning {
+  @apply bg-yellow-100 text-yellow-700;
+}
+
+.badge-danger {
+  @apply bg-red-100 text-red-700;
+}
+
+.badge-info {
+  @apply bg-blue-100 text-blue-700;
+}

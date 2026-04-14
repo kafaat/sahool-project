@@ -1,6 +1,29 @@
+# ============================================================
+# Sahool Yemen Platform - Basic Development Setup
+# منصة سهول اليمن - إعداد التطوير الأساسي
+# ============================================================
+# للإعداد السريع فقط مع البنية التحتية الأساسية
+# For quick setup with basic infrastructure only
+#
+# Usage:
+#   docker-compose up -d              # Start services
+#   docker-compose down               # Stop services
+#   docker-compose logs -f postgres   # View logs
+#
+# For full development environment use:
+#   docker-compose -f docker-compose.dev.yml up -d
+# ============================================================
+
 version: "3.9"
 
+networks:
+  sahool-net:
+    driver: bridge
+
 services:
+  # ============================================================
+  # PostgreSQL with PostGIS
+  # ============================================================
   postgres:
     image: postgis/postgis:15-3.4
     container_name: sahool-postgres
@@ -13,26 +36,78 @@ services:
       - "5432:5432"
     volumes:
       - pgdata_sahool:/var/lib/postgresql/data
+      - ./field_suite_service/postgres/init:/docker-entrypoint-initdb.d:ro
+    networks:
+      - sahool-net
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d sahool"]
       interval: 10s
       timeout: 5s
       retries: 5
 
-  gateway-edge:
-    # Replace this with your actual image/build for the gateway
-    build:
-      context: ./multi-repo/gateway-edge/multi-repo/gateway-edge
-    container_name: gateway-edge
+  # ============================================================
+  # Redis Cache
+  # ============================================================
+  redis:
+    image: redis:7-alpine
+    container_name: sahool-redis
     restart: unless-stopped
+    command: redis-server --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_sahool:/data
+    networks:
+      - sahool-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ============================================================
+  # MinIO Object Storage
+  # ============================================================
+  minio:
+    image: minio/minio:latest
+    container_name: sahool-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
     ports:
       - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_sahool:/data
+    networks:
+      - sahool-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ============================================================
+  # Adminer - Database Management UI
+  # ============================================================
+  adminer:
+    image: adminer:latest
+    container_name: sahool-adminer
+    restart: unless-stopped
+    ports:
+      - "8081:8080"
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
     depends_on:
       - postgres
-    # Optional: if your gateway needs env variables, put them here
-    environment:
-      DATABASE_URL: postgres://postgres:postgres@postgres:5432/sahool
+    networks:
+      - sahool-net
 
+# ============================================================
+# Volumes
+# ============================================================
 volumes:
   pgdata_sahool:
-  minio_data:
+  redis_sahool:
+  minio_sahool:

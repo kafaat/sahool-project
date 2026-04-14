@@ -1,0 +1,76 @@
+{
+  "expo": {
+    "name": "سهول - Sahool",
+    "slug": "sahool-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#2E7D32"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "ye.sahool.mobile",
+      "buildNumber": "1.0.0",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "نحتاج إلى موقعك لعرض الحقول القريبة منك",
+        "NSLocationAlwaysUsageDescription": "نحتاج إلى موقعك لتتبع حقولك",
+        "NSCameraUsageDescription": "نحتاج إلى الكاميرا لالتقاط صور الحقول",
+        "NSPhotoLibraryUsageDescription": "نحتاج إلى الوصول للصور لرفع صور الحقول"
+      },
+      "config": {
+        "googleMapsApiKey": "YOUR_IOS_GOOGLE_MAPS_API_KEY"
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#2E7D32"
+      },
+      "package": "ye.sahool.mobile",
+      "versionCode": 1,
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE"
+      ],
+      "config": {
+        "googleMaps": {
+          "apiKey": "YOUR_ANDROID_GOOGLE_MAPS_API_KEY"
+        }
+      }
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "السماح لـ سهول باستخدام موقعك"
+        }
+      ]
+    ],
+    "extra": {
+      "apiUrl": "https://api.sahool.ye",
+      "eas": {
+        "projectId": "sahool-yemen-mobile"
+      }
+    },
+    "owner": "sahool-yemen",
+    "updates": {
+      "fallbackToCacheTimeout": 0
+    },
+    "runtimeVersion": {
+      "policy": "sdkVersion"
+    }
+  }
+}

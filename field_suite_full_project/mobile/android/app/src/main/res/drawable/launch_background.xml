@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Field Suite Launch Background - John Deere Green -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Background Color - Primary Green -->
+    <item android:drawable="@color/primary_green" />
+
+    <!-- Center Icon/Logo placeholder -->
+    <item>
+        <bitmap
+            android:gravity="center"
+            android:src="@mipmap/ic_launcher" />
+    </item>
+</layer-list>

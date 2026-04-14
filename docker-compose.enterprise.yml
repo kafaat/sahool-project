@@ -55,7 +55,7 @@ services:
     environment:
       DATABASE_URL: ${DATABASE_URL}
     ports:
-      - "9001:9000"
+      - "9002:9000"
     networks:
       - sahool-net
 
@@ -194,7 +194,7 @@ services:
       ALERTS_URL: http://alerts-core:8004
       ANALYTICS_URL: http://analytics-core:8005
     ports:
-      - "9000:9000"
+      - "8080:9000"
     networks:
       - sahool-net
 
@@ -214,7 +214,7 @@ services:
       MINIO_BUCKET_IMAGERY: ${MINIO_BUCKET_IMAGERY}
       REDIS_URL: ${REDIS_URL}
     ports:
-      - "9101:9000"
+      - "9201:9000"
     networks:
       - sahool-net
 
@@ -231,7 +231,7 @@ services:
       GATEWAY_URL: http://gateway-edge:9000
       REDIS_URL: ${REDIS_URL}
     ports:
-      - "9102:9000"
+      - "9202:9000"
     networks:
       - sahool-net
 
@@ -252,7 +252,7 @@ services:
       MINIO_BUCKET_NDVI: ${MINIO_BUCKET_NDVI:-sahool-ndvi}
       REDIS_URL: ${REDIS_URL}
     ports:
-      - "9103:9000"
+      - "9203:9000"
     networks:
       - sahool-net
 
@@ -267,7 +267,7 @@ services:
     environment:
       GATEWAY_URL: http://gateway-edge:9000
     ports:
-      - "9104:9000"
+      - "9204:9000"
     networks:
       - sahool-net
 
@@ -282,7 +282,7 @@ services:
     environment:
       REDIS_URL: ${REDIS_URL}
     ports:
-      - "9105:9000"
+      - "9205:9000"
     networks:
       - sahool-net
 

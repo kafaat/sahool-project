@@ -1,0 +1,72 @@
+# سهول اليمن - Prometheus Configuration
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    monitor: 'sahool-yemen'
+    environment: 'production'
+
+# Alerting configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: []
+
+# Rule files
+rule_files: []
+
+# Scrape configurations
+scrape_configs:
+  # Prometheus self-monitoring
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]
+    scrape_interval: 30s
+
+  # Field Suite Backend
+  - job_name: "field-suite-backend"
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["field-suite-backend:8000"]
+        labels:
+          service: "backend"
+          type: "main"
+    scrape_interval: 15s
+
+  # Nano Services
+  - job_name: "nano-services"
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - "weather-core:8000"
+          - "imagery-core:8000"
+          - "geo-core:8000"
+          - "analytics-core:8000"
+          - "query-core:8000"
+          - "advisor-core:8000"
+        labels:
+          type: "nano-service"
+    scrape_interval: 30s
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: service
+        regex: '([^:]+):.*'
+        replacement: '${1}'
+
+  # PostgreSQL (if postgres_exporter is added)
+  # - job_name: "postgres"
+  #   static_configs:
+  #     - targets: ["postgres-exporter:9187"]
+  #   scrape_interval: 30s
+
+  # Redis (if redis_exporter is added)
+  # - job_name: "redis"
+  #   static_configs:
+  #     - targets: ["redis-exporter:9121"]
+  #   scrape_interval: 30s
+
+  # Nginx (if nginx_exporter is added)
+  # - job_name: "nginx"
+  #   static_configs:
+  #     - targets: ["nginx-exporter:9113"]
+  #   scrape_interval: 30s

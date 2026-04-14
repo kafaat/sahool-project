@@ -1,0 +1,295 @@
+version: "3.9"
+
+# سهول اليمن - Docker Compose Production Configuration
+# Sahool Yemen Field Suite v6.0.0
+
+networks:
+  sahool-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+volumes:
+  fs_pg_data:
+    driver: local
+  fs_redis_data:
+    driver: local
+  fs_prometheus_data:
+    driver: local
+  fs_grafana_data:
+    driver: local
+
+services:
+  # =======================
+  # PostgreSQL + PostGIS
+  # =======================
+  fs-postgres:
+    image: postgis/postgis:15-3.4-alpine
+    container_name: sahool-fs-postgres
+    environment:
+      POSTGRES_USER: ${DB_USER:-sahool_production_user}
+      POSTGRES_PASSWORD: ${DB_PASS:-change_me_in_production}
+      POSTGRES_DB: ${DB_NAME:-sahool_yemen_db}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "5434:5432"
+    volumes:
+      - fs_pg_data:/var/lib/postgresql/data
+      - ./field_suite_service/postgres/init:/docker-entrypoint-initdb.d:ro
+    networks:
+      - sahool-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # =======================
+  # Redis
+  # =======================
+  fs-redis:
+    image: redis:7-alpine
+    container_name: sahool-fs-redis
+    command: >
+      redis-server --appendonly yes
+      --requirepass ${REDIS_PASSWORD:-change_me_in_production}
+    ports:
+      - "6380:6379"
+    volumes:
+      - fs_redis_data:/data
+    networks:
+      - sahool-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-change_me_in_production}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # =======================
+  # Nano Services
+  # =======================
+  weather-core:
+    build: ./nano_services/weather-core
+    container_name: sahool-weather-core
+    environment:
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    networks:
+      - sahool-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  imagery-core:
+    build: ./nano_services/imagery-core
+    container_name: sahool-imagery-core
+    environment:
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    networks:
+      - sahool-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  geo-core:
+    build: ./nano_services/geo-core
+    container_name: sahool-geo-core
+    environment:
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    networks:
+      - sahool-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  analytics-core:
+    build: ./nano_services/analytics-core
+    container_name: sahool-analytics-core
+    environment:
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    networks:
+      - sahool-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  query-core:
+    build: ./nano_services/query-core
+    container_name: sahool-query-core
+    environment:
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    networks:
+      - sahool-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  advisor-core:
+    build: ./nano_services/advisor-core
+    container_name: sahool-advisor-core
+    environment:
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+    networks:
+      - sahool-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  # =======================
+  # Field Suite Backend
+  # =======================
+  field-suite-backend:
+    build: ./field_suite_service
+    container_name: sahool-field-suite-backend
+    depends_on:
+      fs-postgres:
+        condition: service_healthy
+      fs-redis:
+        condition: service_healthy
+      weather-core:
+        condition: service_started
+      imagery-core:
+        condition: service_started
+      geo-core:
+        condition: service_started
+      analytics-core:
+        condition: service_started
+      query-core:
+        condition: service_started
+      advisor-core:
+        condition: service_started
+    environment:
+      DATABASE_URL: postgresql://${DB_USER:-sahool_production_user}:${DB_PASS:-change_me_in_production}@fs-postgres:5432/${DB_NAME:-sahool_yemen_db}
+      REDIS_URL: redis://:${REDIS_PASSWORD:-change_me_in_production}@fs-redis:6379/0
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-change_me_in_production}
+      IMAGERY_CORE_BASE_URL: http://imagery-core:8000
+      ANALYTICS_CORE_BASE_URL: http://analytics-core:8000
+      GEO_CORE_BASE_URL: http://geo-core:8000
+      WEATHER_CORE_BASE_URL: http://weather-core:8000
+      ADVISOR_CORE_BASE_URL: http://advisor-core:8000
+      QUERY_CORE_BASE_URL: http://query-core:8000
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-change_me_in_production}
+      API_KEY_SECRET: ${API_KEY_SECRET:-change_me_in_production}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+    ports:
+      - "8000:8000"
+      - "8001:8001"
+    volumes:
+      - ./logs:/app/logs
+    networks:
+      - sahool-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 20s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+
+  # =======================
+  # Frontend
+  # =======================
+  frontend:
+    build: ./field_suite_frontend
+    container_name: sahool-frontend
+    depends_on:
+      - field-suite-backend
+    environment:
+      VITE_API_BASE_URL: /api
+      VITE_APP_NAME: "سهول اليمن"
+    networks:
+      - sahool-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  # =======================
+  # Gateway (Nginx)
+  # =======================
+  gateway:
+    build: ./gateway-edge
+    container_name: sahool-gateway
+    depends_on:
+      - frontend
+      - field-suite-backend
+    ports:
+      - "80:80"
+      - "443:443"
+    networks:
+      - sahool-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # =======================
+  # Prometheus
+  # =======================
+  prometheus:
+    image: prom/prometheus:v2.51.0
+    container_name: sahool-prometheus
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - fs_prometheus_data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=30d"
+      - "--web.console.libraries=/etc/prometheus/console_libraries"
+      - "--web.console.templates=/etc/prometheus/consoles"
+      - "--web.enable-lifecycle"
+    ports:
+      - "9091:9090"
+    networks:
+      - sahool-net
+    restart: unless-stopped
+
+  # =======================
+  # Grafana
+  # =======================
+  grafana:
+    image: grafana/grafana:10.4.0
+    container_name: sahool-grafana
+    depends_on:
+      - prometheus
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_SERVER_ROOT_URL: http://localhost:3003
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+    ports:
+      - "3003:3000"
+    volumes:
+      - fs_grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+    networks:
+      - sahool-net
+    restart: unless-stopped

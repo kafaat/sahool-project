@@ -1,0 +1,15 @@
+# سهول اليمن - Grafana Dashboard Provisioning
+apiVersion: 1
+
+providers:
+  - name: "Field Suite Dashboards"
+    orgId: 1
+    folder: "Sahool Yemen"
+    folderUid: "sahool"
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/provisioning/dashboards
+      foldersFromFilesStructure: false
