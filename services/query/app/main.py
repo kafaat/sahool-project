@@ -5,7 +5,7 @@ Natural language query interface for agricultural data.
 
 import os
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
@@ -459,7 +459,7 @@ async def execute_natural_query(query_request: NaturalQuery):
                 results=results,
                 summary_ar=summary_ar,
                 summary_en=summary_en,
-                executed_at=datetime.utcnow(),
+                executed_at=datetime.now(timezone.utc),
                 execution_time_ms=execution_time
             )
 

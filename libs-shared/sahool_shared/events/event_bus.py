@@ -7,7 +7,7 @@ import asyncio
 import json
 import logging
 from abc import ABC, abstractmethod
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional, Type, TypeVar
 from uuid import uuid4
 import os
@@ -26,7 +26,7 @@ class Event(BaseModel):
     """
     id: str = Field(default_factory=lambda: str(uuid4()))
     type: str
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     tenant_id: Optional[str] = None
     source: str = "unknown"
     data: Dict[str, Any] = Field(default_factory=dict)
@@ -205,10 +205,10 @@ class RedisEventBus(EventBus):
                     if asyncio.iscoroutine(result):
                         await result
                 except Exception as e:
-                    print(f"Error in event handler: {e}")
+                    logger.error(f"Error in event handler: {e}", exc_info=True)
 
         except Exception as e:
-            print(f"Error processing message: {e}")
+            logger.error(f"Error processing message: {e}", exc_info=True)
 
 
 # Global event bus instance

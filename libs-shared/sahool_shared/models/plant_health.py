@@ -2,7 +2,7 @@
 Plant Health Model - نموذج صحة النبات
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Optional
 import uuid
 
@@ -87,7 +87,7 @@ class PlantHealth(Base, TimestampMixin, TenantMixin):
     # Detection info
     detected_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
-        default=datetime.utcnow,
+        default=lambda: datetime.now(timezone.utc),
         comment="وقت الاكتشاف"
     )
     detection_method: Mapped[Optional[str]] = mapped_column(
@@ -131,7 +131,7 @@ class PlantHealth(Base, TimestampMixin, TenantMixin):
     def mark_resolved(self) -> None:
         """Mark health issue as resolved."""
         self.is_resolved = True
-        self.resolved_at = datetime.utcnow()
+        self.resolved_at = datetime.now(timezone.utc)
 
     @property
     def is_critical(self) -> bool:

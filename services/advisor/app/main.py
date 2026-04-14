@@ -4,7 +4,7 @@ Agricultural advisory recommendations based on NDVI, weather, and field data.
 """
 
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import List, Optional
 
@@ -172,7 +172,7 @@ def generate_ndvi_recommendations(
     recommendations = []
     crop_info = YEMEN_CROPS.get(crop_type, {})
     optimal_range = crop_info.get("optimal_ndvi", (0.4, 0.7))
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
 
     if ndvi_value < 0.2:
         rec = Recommendation(
@@ -245,7 +245,7 @@ def generate_weather_recommendations(
     recommendations = []
     crop_info = YEMEN_CROPS.get(crop_type, {})
     water_needs = crop_info.get("water_needs", "medium")
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
 
     # High temperature alert
     if temperature > 40:
@@ -339,7 +339,7 @@ def get_seasonal_recommendations(
     recommendations = []
     crop_info = YEMEN_CROPS.get(crop_type, {})
     harvest_months = crop_info.get("harvest_months", [])
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
 
     if current_month in harvest_months:
         rec = Recommendation(
@@ -430,7 +430,7 @@ async def get_field_advisory(
                 ndvi_score=ndvi_value,
                 health_status="good" if ndvi_value > 0.4 else "needs_attention",
                 recommendations=recommendations,
-                generated_at=datetime.utcnow()
+                generated_at=datetime.now(timezone.utc)
             )
 
         except Exception as e:
@@ -521,7 +521,7 @@ async def analyze_conditions(
         REQUEST_COUNT.labels(endpoint="analyze", status="success").inc()
 
         return {
-            "analysis_date": datetime.utcnow().isoformat(),
+            "analysis_date": datetime.now(timezone.utc).isoformat(),
             "conditions": {
                 "ndvi": ndvi,
                 "temperature": temperature,

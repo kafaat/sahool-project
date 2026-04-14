@@ -169,7 +169,8 @@ class BaseRepository(Generic[ModelType]):
         """Delete a record by ID (async)."""
         instance = await self.get_by_id_async(id)
         if instance:
-            await self.session.delete(instance)
+            # delete() is synchronous, only flush() is async
+            self.session.delete(instance)
             await self.session.flush()
             return True
         return False

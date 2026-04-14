@@ -3,7 +3,7 @@ Device Manager for IoT Gateway
 Manages registered devices and their status
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional
 import logging
 
@@ -111,7 +111,7 @@ class DeviceManager:
         """Update device last seen timestamp"""
         device = self.devices.get(device_id)
         if device:
-            device.last_seen = datetime.utcnow()
+            device.last_seen = datetime.now(timezone.utc)
             device.status = "online"
             logger.debug(f"Updated activity for device: {device_id}")
     
@@ -122,7 +122,7 @@ class DeviceManager:
             device.battery_level = status_data.get('battery_level')
             device.signal_strength = status_data.get('signal_strength')
             device.status = status_data.get('status', 'online')
-            device.last_seen = datetime.utcnow()
+            device.last_seen = datetime.now(timezone.utc)
             
             logger.debug(f"Updated status for device: {device_id}")
     
@@ -131,11 +131,11 @@ class DeviceManager:
         device = self.devices.get(device_id)
         if device:
             device.last_data = data
-            device.last_seen = datetime.utcnow()
+            device.last_seen = datetime.now(timezone.utc)
     
     def check_device_timeouts(self):
         """Check for devices that haven't reported in a while"""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         
         for device in self.devices.values():
             if device.last_seen:

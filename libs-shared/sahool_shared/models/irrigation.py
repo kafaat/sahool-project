@@ -2,7 +2,7 @@
 Irrigation Schedule Model - نموذج جدول الري
 """
 
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from typing import TYPE_CHECKING, Optional
 import uuid
 
@@ -94,7 +94,7 @@ class IrrigationSchedule(Base, TimestampMixin, TenantMixin):
     def mark_completed(self) -> None:
         """Mark irrigation as completed."""
         self.status = "completed"
-        self.executed_at = datetime.utcnow()
+        self.executed_at = datetime.now(timezone.utc)
 
     def mark_cancelled(self) -> None:
         """Mark irrigation as cancelled."""

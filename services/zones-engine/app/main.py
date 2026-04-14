@@ -1,8 +1,12 @@
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from datetime import datetime
+"""
+Zones Engine - محرك مناطق الإدارة الزراعية
+Sahool Yemen v9.0.0
+
+This service calculates and manages agricultural management zones.
+"""
+
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -10,15 +14,12 @@ from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(
     title="Zones Engine",
-    version="5.5.0",
+    description="محرك مناطق الإدارة الزراعية - حساب وإدارة مناطق الحقول",
+    version="9.0.0",
     docs_url="/docs",
     redoc_url="/redoc"
 )
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
 # CORS Configuration - use specific origins in production
 CORS_ORIGINS = [o.strip() for o in os.getenv("CORS_ORIGINS", "").split(",") if o.strip()]
 CORS_ALLOW_CREDENTIALS = bool(CORS_ORIGINS)  # Only allow credentials with specific origins
@@ -34,17 +35,21 @@ app.add_middleware(
 
 @app.get("/health")
 async def health_check():
+    """Health check endpoint."""
     return {
         "status": "healthy",
         "service": "zones-engine",
-        "version": "5.5.0",
-        "timestamp": datetime.utcnow().isoformat()
+        "version": "9.0.0",
+        "timestamp": datetime.now(timezone.utc).isoformat()
     }
 
 
 @app.get("/field/{field_id}")
 async def get_management_zones(field_id: str):
-    """Get management zones for a field"""
+    """
+    Get management zones for a field.
+    الحصول على مناطق الإدارة لحقل معين
+    """
     return {
         "success": True,
         "data": [],
@@ -54,7 +59,10 @@ async def get_management_zones(field_id: str):
 
 @app.post("/calculate/{field_id}")
 async def calculate_zones(field_id: str):
-    """Calculate management zones for a field based on NDVI data"""
+    """
+    Calculate management zones for a field based on NDVI data.
+    حساب مناطق الإدارة لحقل بناءً على بيانات NDVI
+    """
     return {
         "success": True,
         "data": {
@@ -68,10 +76,11 @@ async def calculate_zones(field_id: str):
 
 @app.get("/")
 async def root():
+    """Root endpoint with service information."""
     return {
         "service": "zones-engine",
-        "version": "5.5.0",
-        "description": "Management Zones Engine",
+        "version": "9.0.0",
+        "description": "Management Zones Engine - محرك مناطق الإدارة",
         "endpoints": [
             "GET /health",
             "GET /field/{field_id}",
