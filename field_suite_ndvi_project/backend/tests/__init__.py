@@ -1,1 +1,0 @@
-# Field Suite NDVI Tests
