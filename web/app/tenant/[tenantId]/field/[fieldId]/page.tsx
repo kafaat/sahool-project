@@ -28,7 +28,7 @@ export default function FieldDetailPage() {
   const params = useParams();
   const router = useRouter();
   const tenantId = Number(params.tenantId);
-  const fieldId = Number(params.fieldId);
+  const fieldId = String(params.fieldId); // Keep as string to match UUID
 
   const [activeTab, setActiveTab] = useState(TAB_OVERVIEW);
   const [field, setField] = useState<FieldSummary | null>(null);

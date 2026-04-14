@@ -9,38 +9,40 @@ from app.services.alert_bridge import send_ndvi_alerts
 settings = get_settings()
 
 
-async def get_field_context(tenant_id: int, field_id: int) -> Dict[str, Any]:
-    """Collect basic soil + weather + alerts context via gateway-edge."""
-    base = settings.GATEWAY_URL + "/api"
+async def get_field_context(tenant_id: str, field_id: str) -> Dict[str, Any]:
+    """Collect basic soil + weather + alerts context via gateway."""
+    base = settings.GATEWAY_URL
+    headers = {"X-Tenant-ID": str(tenant_id)}
 
     async with httpx.AsyncClient(timeout=30) as client:
         imagery_resp = await client.get(
-            f"{base}/imagery/api/v1/imagery/list",
-            params={"tenant_id": tenant_id, "field_id": field_id},
-        )
-        soil_resp = await client.get(
-            f"{base}/soil/api/v1/soil/fields/{field_id}/summary",
-            params={"tenant_id": tenant_id},
+            f"{base}/api/v1/imagery/list",
+            params={"field_id": field_id},
+            headers=headers,
         )
         weather_resp = await client.get(
-            f"{base}/weather/api/v1/weather/forecast",
-            params={"tenant_id": tenant_id, "field_id": field_id, "hours_ahead": 72},
+            f"{base}/api/v1/weather/fields/{field_id}",
+            headers=headers,
         )
         alerts_resp = await client.get(
-            f"{base}/alerts/api/v1/alerts/recent",
-            params={"tenant_id": tenant_id, "hours": 72},
+            f"{base}/api/v1/alerts/field/{field_id}",
+            headers=headers,
+        )
+        analytics_resp = await client.get(
+            f"{base}/api/v1/analytics/fields/{field_id}/summary",
+            headers=headers,
         )
 
-    imagery = imagery_resp.json()
-    soil_summary = soil_resp.json()
-    weather_forecast = weather_resp.json()
-    alerts = alerts_resp.json()
+    imagery = imagery_resp.json() if imagery_resp.status_code == 200 else {}
+    weather_forecast = weather_resp.json() if weather_resp.status_code == 200 else {}
+    alerts = alerts_resp.json() if alerts_resp.status_code == 200 else {}
+    analytics = analytics_resp.json() if analytics_resp.status_code == 200 else {}
 
     latest_image = imagery[0] if isinstance(imagery, list) and imagery else None
 
     return {
         "imagery_latest": latest_image,
-        "soil_summary": soil_summary,
+        "analytics_summary": analytics,
         "weather_forecast": weather_forecast,
         "alerts": alerts,
     }
@@ -50,30 +52,44 @@ def basic_reasoning(context: Dict[str, Any]) -> Dict[str, Any]:
     warnings: List[str] = []
     recommendations: List[str] = []
 
-    soil_summary = context.get("soil_summary") or {}
+    analytics = context.get("analytics_summary") or {}
     weather = context.get("weather_forecast") or {}
+    alerts = context.get("alerts") or {}
 
-    ec = soil_summary.get("ec_avg")
-    ph = soil_summary.get("ph_avg")
-    moisture = soil_summary.get("moisture_avg")
+    # Check NDVI-based health
+    ndvi = analytics.get("latest_ndvi")
+    health_status = analytics.get("health_status", "").lower()
 
-    if ec is not None and ec > 4:
+    if ndvi is not None and ndvi < 0.3:
         warnings.append(
-            "ملوحة التربة مرتفعة، يوصى بالتفكير في غسيل التربة وتحسين الصرف."
+            "مؤشر NDVI منخفض، يوصى بفحص صحة المحصول والتسميد."
         )
-    if ph is not None and (ph < 6 or ph > 7.5):
+    if "poor" in health_status or "stress" in health_status:
         warnings.append(
-            "درجة حموضة التربة خارج النطاق المثالي، راجع برنامج التسميد/الجبس الزراعي."
+            "حالة المحصول تحتاج اهتمام، راجع برنامج الري والتسميد."
         )
-    if moisture is not None and moisture < 15:
-        warnings.append("رطوبة التربة منخفضة، يوصى بالري خلال 24 ساعة القادمة.")
 
-    points = (weather or {}).get("points") or []
-    if points:
-        max_eto = max((p.get("eto_mm") or 0) for p in points)
-        if max_eto > 7:
+    # Check weather conditions
+    current = weather.get("current") or {}
+    temperature = current.get("temperature")
+    humidity = current.get("humidity")
+
+    if temperature is not None and temperature > 38:
+        warnings.append(
+            "درجة الحرارة مرتفعة جداً، قد يحدث إجهاد حراري للمحصول."
+        )
+    if humidity is not None and humidity < 20:
+        warnings.append(
+            "الرطوبة منخفضة جداً، يوصى بزيادة الري."
+        )
+
+    # Check alerts
+    alert_items = alerts.get("items") or []
+    if len(alert_items) > 0:
+        high_alerts = [a for a in alert_items if a.get("severity") == "high"]
+        if high_alerts:
             warnings.append(
-                "قيمة ETo المتوقعة عالية، قد يحدث إجهاد مائي للمحصول خلال الأيام القادمة."
+                f"يوجد {len(high_alerts)} تنبيه عاجل للحقل، راجع قائمة التنبيهات."
             )
 
     if not warnings:
@@ -82,13 +98,13 @@ def basic_reasoning(context: Dict[str, Any]) -> Dict[str, Any]:
         )
 
     priority = "normal"
-    if any("إجهاد" in w or "مرتفعة" in w for w in warnings):
+    if any("إجهاد" in w or "مرتفعة" in w or "عاجل" in w for w in warnings):
         priority = "high"
 
     return {"priority": priority, "warnings": warnings, "recommendations": recommendations}
 
 
-async def build_field_advice(tenant_id: int, field_id: int, message: str) -> Dict[str, Any]:
+async def build_field_advice(tenant_id: str, field_id: str, message: str) -> Dict[str, Any]:
     context = await get_field_context(tenant_id, field_id)
     analysis = basic_reasoning(context)
 
@@ -109,19 +125,20 @@ async def build_field_advice(tenant_id: int, field_id: int, message: str) -> Dic
         "reply": reply,
         "priority": analysis["priority"],
         "context": {
-            "soil_summary": context.get("soil_summary"),
+            "analytics_summary": context.get("analytics_summary"),
             "weather_forecast": context.get("weather_forecast"),
         },
     }
 
 
-async def get_ndvi_analysis(tenant_id: int, field_id: int) -> Dict[str, Any]:
-    """Fetch latest NDVI via gateway-edge and analyze color-based stress, then send alerts if needed."""
-    base = settings.GATEWAY_URL + "/api"
+async def get_ndvi_analysis(tenant_id: str, field_id: str) -> Dict[str, Any]:
+    """Fetch latest NDVI via gateway and analyze color-based stress, then send alerts if needed."""
+    base = settings.GATEWAY_URL
+    headers = {"X-Tenant-ID": str(tenant_id)}
     async with httpx.AsyncClient(timeout=60) as client:
         resp = await client.get(
-            f"{base}/imagery/api/v1/imagery/fields/{field_id}/ndvi-latest",
-            params={"tenant_id": tenant_id},
+            f"{base}/api/v1/ndvi/fields/{field_id}",
+            headers=headers,
         )
 
     if resp.status_code != 200:

@@ -70,6 +70,7 @@ export default function TenantDashboardPage() {
   return (
     <AppShell>
       <FieldList
+        tenantId={tenantId}
         fields={fields}
         selectedId={selectedField?.id}
         onSelect={(f) => setSelectedField(f)}
