@@ -7,7 +7,7 @@ import type { FieldSummary } from '@/lib/api';
 interface Props {
   tenantId: number;
   fields: FieldSummary[];
-  selectedId?: number;
+  selectedId?: string; // UUID string from backend
   onSelect: (field: FieldSummary) => void;
 }
 

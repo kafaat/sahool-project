@@ -8,7 +8,7 @@ Authentication and authorization service for the platform.
 import os
 import sys
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Optional
 from uuid import UUID
 
@@ -235,7 +235,7 @@ async def login(
             )
 
         # Update last login
-        user.last_login = datetime.now(timezone.utc)
+        user.last_login = datetime.utcnow()
         await db.commit()
 
         # Create tokens
